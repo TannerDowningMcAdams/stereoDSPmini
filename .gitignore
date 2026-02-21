@@ -1,0 +1,41 @@
+# Build output directories
+build/
+Debug/
+Release/
+*.elf
+*.bin
+*.hex
+*.map
+
+# Compiler artifacts
+*.o
+*.d
+*.a
+*.su
+*.cyclo
+*.dep
+
+# CubeMX/CubeIDE
+*.bak
+*.tmp
+*~
+*.swp
+.mxproject
+
+# VSCode - commit tasks, launch, and c_cpp_properties but not local settings
+.vscode/settings.json
+.vscode/ipch/
+.vscode/*.db
+
+# CubeIDE project files
+.cproject
+.project
+.settings/
+*.launch
+
+# System files
+.DS_Store
+Thumbs.db
+
+# STM32CubeIDE workspace metadata
+../.metadata/
