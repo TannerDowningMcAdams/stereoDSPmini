@@ -66,6 +66,8 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
+#define UNCACHED_RAM    __attribute__((section(".RAM_D2_NO_CACHE")))
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
