@@ -7,27 +7,27 @@
 void Relay::leftOff() {
 
     HAL_GPIO_WritePin(RELAY_L_GPIO_Port, RELAY_L_Pin, GPIO_PIN_RESET);
-    leftStatus = RelayStatus::OFF;
+    leftStatus_ = RelayStatus::OFF;
 
 }
 
 void Relay::leftOn() {
 
     HAL_GPIO_WritePin(RELAY_L_GPIO_Port, RELAY_L_Pin, GPIO_PIN_SET);
-    leftStatus = RelayStatus::ON;
+    leftStatus_ = RelayStatus::ON;
 
 }
 
 void Relay::rightOff() {
 
     HAL_GPIO_WritePin(RELAY_R_GPIO_Port, RELAY_R_Pin, GPIO_PIN_RESET);
-    rightStatus = RelayStatus::OFF;
+    rightStatus_ = RelayStatus::OFF;
 
 }
 
 void Relay::rightOn() {
 
     HAL_GPIO_WritePin(RELAY_R_GPIO_Port, RELAY_R_Pin, GPIO_PIN_SET);
-    rightStatus = RelayStatus::ON;
+    rightStatus_ = RelayStatus::ON;
 
 }

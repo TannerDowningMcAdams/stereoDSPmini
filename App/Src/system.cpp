@@ -21,22 +21,22 @@ void System::spiTxRxComplete() {
 
     // G0 SPI callback updates internal uiParams
     g0Spi_.txRxComplete(); 
-    analogDryThru_.setVcaValue(g0Spi_.params_.vca_value);
-    g0Spi_.params_.relay_L ? relay_.leftOn() : relay_.leftOff();
-    g0Spi_.params_.relay_R ? relay_.rightOn() : relay_.rightOff();
-    processorControls newControls = translateControls(g0Spi_.params_);
+    analogDryThru_.setVcaValue(g0Spi_.params_.vcaValue);
+    g0Spi_.params_.relayL ? relay_.leftOn() : relay_.leftOff();
+    g0Spi_.params_.relayR ? relay_.rightOn() : relay_.rightOff();
+    ProcessorControls newControls = translateControls(g0Spi_.params_);
     // Update pending parameters for audio processing
     processor_.pushControls(newControls);
 
 }
 
-processorControls translateControls(const uiParams &params) {
+ProcessorControls translateControls(const uiParams &params) {
 
-    processorControls controls;
+    ProcessorControls controls;
     std::memcpy(controls.potentiometers, params.potentiometers, sizeof(controls.potentiometers));
-    controls.effect_mode = params.mode_switch;
-    controls.beats_per_second = params.beats_per_second;
-    controls.clock_phase = params.clock_phase;
+    controls.effectMode = params.modeSwitch;
+    controls.beatsPerSecond = params.beatsPerSecond;
+    controls.clockPhase = params.clockPhase;
 
 }
  

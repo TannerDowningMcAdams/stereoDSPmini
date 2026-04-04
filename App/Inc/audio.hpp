@@ -22,8 +22,8 @@ public:
     static constexpr uint16_t kCodecBufferSize = 128;
     static constexpr uint16_t kBufferSize = kCodecBufferSize / 2;
     static constexpr uint16_t kFrameBufferSize = kBufferSize / 2;
-    // SAI clock = 24.615385 MHz -> / (256 * (1+OSR)) where OSR = 1
-    static constexpr float kSampleRate = 48076.92382813f;
+    // 24.615385 MHz / (256 * (1+OSR)) = 48076.92382813 where OSR = 1
+    static constexpr uint16_t kSampleRate = 48077;
 
     enum class AudioStatus { BUSY, READY, ERROR };
 

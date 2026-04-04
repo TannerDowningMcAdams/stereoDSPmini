@@ -2,7 +2,10 @@
 #include <cstdint>
 #include <cstring>
 
-void Processor::init() {
+void Processor::init(float sampleRate) {
+
+    sampleRate_ = sampleRate;
+    samplePeriod_ = 1.0f / sampleRate;
 
 // Initialize DSP, buffers, etc
 
@@ -41,7 +44,7 @@ void Processor::updateAlgorithmParams() {
 
 }
 
-void Processor::pushControls(const processorControls &controls) {
+void Processor::pushControls(const ProcessorControls &controls) {
 
     pendingControls_ = controls;
     controlsReady_ = true;

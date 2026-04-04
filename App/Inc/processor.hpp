@@ -14,12 +14,12 @@ extern "C" {
 
 #include <cstdint>
 
-struct processorControls{
+struct ProcessorControls{
 
     float potentiometers[5];
-    uint8_t effect_mode;
-    float beats_per_second;
-    uint16_t clock_phase;
+    uint8_t effectMode;
+    float beatsPerSecond;
+    uint16_t clockPhase;
 
 };
 
@@ -31,17 +31,20 @@ public:
 
     //enum class AudioStatus { BUSY, READY, ERROR };
 
-    void init();
+    void init(float sampleRate);
 
     void processAudioBlock(AudioBuffer input, AudioBuffer output);
     FloatFrame processLeftRight(FloatFrame frame);
-    void pushControls(const processorControls &controls);
+    void pushControls(const ProcessorControls &controls);
     
 private:
 
+    uint16_t sampleRate_;
+    float samplePeriod_;
+
     void updateAlgorithmParams();
-    processorControls activeControls_;
-    processorControls pendingControls_;
+    ProcessorControls activeControls_;
+    ProcessorControls pendingControls_;
     volatile bool controlsReady_ = false;
 
 } ;

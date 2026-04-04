@@ -29,9 +29,9 @@ void G0Spi::init(){
 void G0Spi::packUnpackSpiData() {
 
     std::memcpy(spiRxDataCache_, const_cast<uint16_t*>(spiRxDataDMA_), sizeof(spiRxDataCache_));
-    uint16_t message_id = spiRxDataCache_[0];
+    uint16_t messageId = spiRxDataCache_[0];
 
-    switch (message_id) {
+    switch (messageId) {
 
         //Control packet 
         case 0x5A9E: parseControlPacket();
@@ -41,20 +41,20 @@ void G0Spi::packUnpackSpiData() {
 
     std::memcpy(const_cast<uint16_t*>(spiTxDataDMA_), spiTxDataCache_, sizeof(spiTxDataCache_));
     HAL_SPI_TransmitReceive_DMA(handle_, (uint8_t *)&spiTxDataDMA_, (uint8_t *)&spiRxDataDMA_, kSpiPacketWords);
-    
+
 }
 
 void G0Spi::parseControlPacket() {
 
     // Boolean values for relay states
-    params_.relay_L = (spiRxDataCache_[0] & (1)) != 0;
-    params_.relay_R = (spiRxDataCache_[0] & (1 << 1)) != 0;
+    params_.relayL = (spiRxDataCache_[0] & (1)) != 0;
+    params_.relayR = (spiRxDataCache_[0] & (1 << 1)) != 0;
 
     // Mode switch is a 2-bit unsigned integer (3 values used)
-    params_.mode_switch = (spiRxDataCache_[0] >> 2) & (0b11);
+    params_.modeSwitch = (spiRxDataCache_[0] >> 2) & (0b11);
 
     // 12-bit mask for VCA value
-    params_.vca_value = spiRxDataCache_[2] & (0x0FFF);
+    params_.vcaValue = spiRxDataCache_[2] & (0x0FFF);
 
     // 5 potentiometer values converted from 12-bit unsigned int to float
     params_.potentiometers[0] = (spiRxDataCache_[3] & (0x0FFF)) * G0Spi::int12_to_float;
@@ -63,8 +63,8 @@ void G0Spi::parseControlPacket() {
     params_.potentiometers[3] = (spiRxDataCache_[6] & (0x0FFF)) * G0Spi::int12_to_float;
     params_.potentiometers[4] = (spiRxDataCache_[7] & (0x0FFF)) * G0Spi::int12_to_float;
 
-    params_.beats_per_second = spiRxDataCache_[8];
-    params_.clock_phase = spiRxDataCache_[9];
+    params_.beatsPerSecond = spiRxDataCache_[8];
+    params_.clockPhase = spiRxDataCache_[9];
 
 }
 

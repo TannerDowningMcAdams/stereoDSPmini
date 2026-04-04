@@ -7,20 +7,20 @@
 void AnalogDryThru::init() {
 
     // DAC is internally routed to OPAMP peripheral
-    HAL_DAC_Start(dac_handle_, dac_channel_);
+    HAL_DAC_Start(dacHandle_, dacChannel_);
     HAL_Delay(20);
-    HAL_DAC_SetValue(dac_handle_, dac_channel_, DAC_ALIGN_12B_R, 0);
+    HAL_DAC_SetValue(dacHandle_, dacChannel_, DAC_ALIGN_12B_R, 0);
     HAL_Delay(20);
-    HAL_OPAMP_Start(opamp_handle_);
-    current_value_ = 0;
+    HAL_OPAMP_Start(opampHandle_);
+    currentValue_ = 0;
 
 }
 
-void AnalogDryThru::setVcaValue(uint16_t dry_strength) {
+void AnalogDryThru::setVcaValue(uint16_t dryStrength) {
 
     // 12 bit mask
-    uint16_t dry_strength_mask = dry_strength & (0x0FFF);
-    HAL_DAC_SetValue(dac_handle_, dac_channel_, DAC_ALIGN_12B_R, dry_strength_mask);
-    current_value_ = dry_strength_mask;
+    uint16_t dryStrengthMask = dryStrength & (0x0FFF);
+    HAL_DAC_SetValue(dacHandle_, dacChannel_, DAC_ALIGN_12B_R, dryStrengthMask);
+    currentValue_ = dryStrengthMask;
 
 }

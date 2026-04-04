@@ -25,14 +25,14 @@ public:
 
     void init();
 
-    void setVcaValue(uint16_t dry_strength);
-    uint16_t getCurrentValue() { return current_value_; }
+    void setVcaValue(uint16_t dryStrength);
+    uint16_t getCurrentValue() { return currentValue_; }
 
 private:
 
-    OPAMP_HandleTypeDef *opamp_handle_ = &hopamp1;
-    DAC_HandleTypeDef *dac_handle_ = &hdac1;
-    uint32_t dac_channel_ = DAC_CHANNEL_1;
-    uint16_t current_value_;
+    OPAMP_HandleTypeDef *opampHandle_ = &hopamp1;
+    DAC_HandleTypeDef *dacHandle_ = &hdac1;
+    uint32_t dacChannel_ = DAC_CHANNEL_1;
+    uint16_t currentValue_;
 
 } ;

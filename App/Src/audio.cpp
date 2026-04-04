@@ -13,7 +13,7 @@ UNCACHED_RAM int32_t audioDacDataDMA_[Audio::kCodecBufferSize];
 int32_t *audioInPointer_ = &audioAdcDataDMA_[0];
 int32_t *audioOutPointer_ = &audioDacDataDMA_[0];
 
-void Audio::init(){
+void Audio::init() {
 
     inputBufferPointer_ = &inputBuffer_[0];
     outputBufferPointer_ = &outputBuffer_[0];
@@ -29,7 +29,7 @@ void Audio::init(){
 
 }
 
-void Audio::packUnpackAudioData(){
+void Audio::packUnpackAudioData() {
 
     for(int n = 0; n < kBufferSize - 1; n+=2) 
     {
@@ -73,7 +73,7 @@ void Audio::packUnpackAudioData(){
 
 }
 
-void Audio::rxHalfComplete(){
+void Audio::rxHalfComplete() {
 
     audioInPointer_ = &audioAdcDataDMA_[0];
     receiveReady_ = true;
@@ -81,7 +81,7 @@ void Audio::rxHalfComplete(){
 
 }
 
-void Audio::rxComplete(){
+void Audio::rxComplete() {
 
     audioInPointer_ = &audioAdcDataDMA_[kBufferSize];
     receiveReady_ = true;
@@ -89,7 +89,7 @@ void Audio::rxComplete(){
 
 }
 
-void Audio::txHalfComplete(){
+void Audio::txHalfComplete() {
 
     audioOutPointer_ = &audioDacDataDMA_[0];
     transmitReady_ = true;
@@ -97,7 +97,7 @@ void Audio::txHalfComplete(){
 
 }
 
-void Audio::txComplete(){
+void Audio::txComplete() {
 
     audioOutPointer_ = &audioDacDataDMA_[kBufferSize];
     transmitReady_ = true;
@@ -105,19 +105,19 @@ void Audio::txComplete(){
 
 }
 
-AudioBuffer Audio::getInputBuffer(){
+AudioBuffer Audio::getInputBuffer() {
 
     return {inputBufferPointer_, kFrameBufferSize};
 
 }
 
-AudioBuffer Audio::getOutputBuffer(){
+AudioBuffer Audio::getOutputBuffer() {
 
     return {outputBufferPointer_, kFrameBufferSize};
 
 }
 
-void Audio::resetCodec(){
+void Audio::resetCodec() {
 
     HAL_GPIO_WritePin(CODEC_NRST_GPIO_Port, CODEC_NRST_Pin, GPIO_PIN_RESET);
     HAL_Delay(50);

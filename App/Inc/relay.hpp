@@ -24,12 +24,12 @@ public:
     void rightOff();
     void rightOn();
     
-    RelayStatus getLeftStatus(){ return leftStatus; }
-    RelayStatus getRightStatus(){ return rightStatus; }
+    RelayStatus getLeftStatus(){ return leftStatus_; }
+    RelayStatus getRightStatus(){ return rightStatus_; }
     
 private:
 
-    RelayStatus leftStatus = RelayStatus::OFF;
-    RelayStatus rightStatus = RelayStatus::OFF;
+    RelayStatus leftStatus_ = RelayStatus::OFF;
+    RelayStatus rightStatus_ = RelayStatus::OFF;
 
 } ;
