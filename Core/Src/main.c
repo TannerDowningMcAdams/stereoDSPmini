@@ -60,7 +60,7 @@ void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 static void MPU_Config(void);
 /* USER CODE BEGIN PFP */
-
+void App_Run(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -121,11 +121,12 @@ int main(void)
   MX_USART3_UART_Init();
   MX_OPAMP1_Init();
   /* USER CODE BEGIN 2 */
-
+  App_Run();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  // Never reached
   while (1)
   {
     /* USER CODE END WHILE */

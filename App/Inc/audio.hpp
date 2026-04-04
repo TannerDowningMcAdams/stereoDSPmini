@@ -1,17 +1,17 @@
 #pragma once
 
+#include "frame.hpp"
+#include "audio_buffer.hpp"
+#include <cstdint>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 #include "sai.h"
 #include "stm32h7xx_hal.h"
-#include "frame.hpp"
-#include "audio_buffer.hpp"
 #ifdef __cplusplus
 }
 #endif
-
-#include <cstdint>
 
 class Audio {
 public:

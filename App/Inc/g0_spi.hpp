@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ui_params.hpp"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -10,6 +12,7 @@ extern "C" {
 #endif
 
 #include <cstdint>
+
 
 class G0Spi {
 public:
@@ -23,7 +26,7 @@ public:
     static constexpr uint16_t kSpiPacketWords = 16;
 
     void init(); 
-    void txRxComplete();
+    void txRxComplete() { packUnpackSpiData(); }
     void spiErrorCallback();
     
 private:
@@ -31,6 +34,8 @@ private:
     SPI_HandleTypeDef *handle_ = &hspi2;
 
     CommStatus status_;
+
+    static constexpr float int12_to_float = 1.0f / 4095.0f;
 
     // DMA buffers for SPI transmission and reception
     static volatile uint16_t spiRxDataDMA_[kSpiPacketWords];
@@ -45,18 +50,5 @@ private:
     void spiErrorHandler();
 } ;
 
-typedef struct {
 
-} g0Params;
 
-typedef struct {
-
-    float potentiometers[5];
-    bool toggle_1;
-    bool toggle_2;
-    bool relay_L;
-    bool relay_R;
-    float beats_per_second;
-    float clock_phase;
-
-} uiParams;

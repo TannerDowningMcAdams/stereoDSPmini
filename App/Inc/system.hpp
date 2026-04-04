@@ -1,20 +1,19 @@
 #pragma once
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 #include "audio.hpp"
 #include "frame.hpp"
+#include "ui_params.hpp"
 #include "relay.hpp"
 #include "g0_spi.hpp"
 #include "analog_dry.hpp"
-#include "stm32h7xx_hal.h"
 #include "processor.hpp"
+#include <cstdint>
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "stm32h7xx_hal.h"
 #ifdef __cplusplus
 }
 #endif
-
-#include <cstdint>
 
 class System {
 public:
@@ -24,15 +23,17 @@ public:
 
     void init();
     void onAudioReady();
+    void onParamsReady();
 
     inline void audioRxHalfComplete()   { audio_.rxHalfComplete(); }
     inline void audioRxComplete()       { audio_.rxComplete(); }
     inline void audioTxHalfComplete()   { audio_.txHalfComplete(); }
     inline void audioTxComplete()       { audio_.txComplete(); }
-    inline void audioErrorCallback();
-    inline void spiTxRxComplete()       { g0Spi_.txRxComplete(); }
-    inline void spiErrorCallback();
+    void audioErrorCallback();
+    void spiTxRxComplete();
+    void spiErrorCallback();
 
+    
 private:
 
     Audio audio_;
@@ -40,5 +41,9 @@ private:
     Relay relay_;
     AnalogDryThru analogDryThru_;
     Processor processor_;
+    uiParams uiParams_;
+    bool uiParamsLocked_;
+
+    processorControls translateControls(const uiParams &params);
 
 } ;

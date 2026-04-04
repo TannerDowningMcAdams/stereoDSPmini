@@ -9,4 +9,4 @@ extern "C" {
 #endif
 
 
-typedef struct { float left; float right; } FloatFrame;
+struct FloatFrame { float left; float right; };

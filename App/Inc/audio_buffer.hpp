@@ -1,10 +1,11 @@
 #pragma once
 
+#include <cstdint>
+#include "frame.hpp"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "frame.hpp"
 
 #ifdef __cplusplus
 }

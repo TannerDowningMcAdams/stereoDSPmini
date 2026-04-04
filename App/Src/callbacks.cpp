@@ -1,22 +1,17 @@
+#include "system.hpp"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 #include "spi.h"
 #include "sai.h"
 #include "main.h"
-#include "system.hpp"
-#include "app_main.hpp"
 #include "stm32h7xx_hal.h"
 #include "stm32h7xx_hal_sai.h"
 #include "stm32h7xx_hal_spi.h"
-
 #ifdef __cplusplus
 }
 #endif
-
-#include "system.hpp"
-
 
 extern System gSystem;
 
