@@ -1,7 +1,7 @@
 #pragma once
 
 #include "frame.hpp"
-#include "audio_buffer.hpp"
+#include "frame_buffer.hpp"
 #include "ui_params.hpp"
 
 #ifdef __cplusplus
@@ -33,7 +33,7 @@ public:
 
     void init(float sampleRate);
 
-    void processAudioBlock(AudioBuffer input, AudioBuffer output);
+    void processAudioBlock(FrameBuffer input, FrameBuffer output);
     FloatFrame processLeftRight(FloatFrame frame);
     void pushControls(const ProcessorControls &controls);
     

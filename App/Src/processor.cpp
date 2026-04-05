@@ -2,51 +2,43 @@
 #include <cstdint>
 #include <cstring>
 
-void Processor::init(float sampleRate) {
-
+void Processor::init(float sampleRate)
+{
     sampleRate_ = sampleRate;
     samplePeriod_ = 1.0f / sampleRate;
 
 // Initialize DSP, buffers, etc
-
 }
 
-void Processor::processAudioBlock(AudioBuffer input, AudioBuffer output) {
-
-    if(controlsReady_) {
-
+void Processor::processAudioBlock(FrameBuffer input, FrameBuffer output)
+{
+    if(controlsReady_)
+    {
         activeControls_ = pendingControls_;
         updateAlgorithmParams();
         controlsReady_ = false;
-
     }
 
-    for (uint16_t i = 0; i < input.size; i++) {
-
+    for (uint16_t i = 0; i < input.size; i++)
+    {
         output[i] = processLeftRight(input[i]);
-
     }
-
 }
 
-FloatFrame Processor::processLeftRight(FloatFrame frame) {
-
+FloatFrame Processor::processLeftRight(FloatFrame frame)
+{
     // Per-sample processing applied to frame.left and frame.right
-
     return frame;
-
 }
 
-void Processor::updateAlgorithmParams() {
-
-    // assign algorithm parameters
+void Processor::updateAlgorithmParams()
+{
+    // map and assign algorithm parameters
     // e.g. filter_cutoff = 20000.0f * activeControls_.potentiometers[0];
-
 }
 
-void Processor::pushControls(const ProcessorControls &controls) {
-
+void Processor::pushControls(const ProcessorControls &controls)
+{
     pendingControls_ = controls;
     controlsReady_ = true;
-
 }

@@ -1,12 +1,11 @@
 #pragma once
-
 #include "ui_params.hpp"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 #include "spi.h"
 #include "stm32h7xx_hal.h"
+#include "spi_protocol.h"
 #ifdef __cplusplus
 }
 #endif
@@ -23,7 +22,7 @@ public:
     uiParams params_;
 
     enum class CommStatus { BUSY, READY, OK, ERROR };
-    static constexpr uint16_t kSpiPacketWords = 16;
+    static constexpr uint16_t kSpiPacketWords = SPI_PACKET_NUM_WORDS;
 
     void init(); 
     void txRxComplete() { packUnpackSpiData(); }
@@ -35,7 +34,7 @@ private:
 
     CommStatus status_;
 
-    static constexpr float int12_to_float = 1.0f / 4095.0f;
+    static constexpr float int12ToFloat = 1.0f / 4095.0f;
 
     // DMA buffers for SPI transmission and reception
     static volatile uint16_t spiRxDataDMA_[kSpiPacketWords];
@@ -44,6 +43,8 @@ private:
     // Cached copy buffers excluding CRC word
     int16_t spiRxDataCache_[kSpiPacketWords - 1];
     int16_t spiTxDataCache_[kSpiPacketWords - 1];
+
+    SpiControlPacket incomingPacket_;
 
     void packUnpackSpiData();
     void parseControlPacket();

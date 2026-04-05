@@ -8,7 +8,7 @@ extern "C" {
 }
 #endif
 
-struct uiParams{
+struct uiParams {
 
     float potentiometers[5];
     bool relayL;

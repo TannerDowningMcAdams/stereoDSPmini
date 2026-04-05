@@ -19,42 +19,35 @@ extern System gSystem;
 extern "C" {
 #endif
 
-    void HAL_SAI_RxHalfCpltCallback(SAI_HandleTypeDef *hsai){
-        
-        gSystem.audioRxHalfComplete(); 
-        
+    void HAL_SAI_RxHalfCpltCallback(SAI_HandleTypeDef *hsai)
+    {    
+        gSystem.audioRxHalfComplete();    
     }
-    void HAL_SAI_RxCpltCallback(SAI_HandleTypeDef *hsai){
-    
-        gSystem.audioRxComplete(); 
-        
+    void HAL_SAI_RxCpltCallback(SAI_HandleTypeDef *hsai)
+    {
+        gSystem.audioRxComplete();    
     }
-    void HAL_SAI_TxHalfCpltCallback(SAI_HandleTypeDef *hsai){
-
-        gSystem.audioTxHalfComplete(); 
-        
+    void HAL_SAI_TxHalfCpltCallback(SAI_HandleTypeDef *hsai)
+    {
+        gSystem.audioTxHalfComplete();    
     }
-    void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai){
-
+    void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai)
+    {
         gSystem.audioTxComplete(); 
-
     }
-    void HAL_SAI_ErrorCallback(SAI_HandleTypeDef *hsai){
-
+    void HAL_SAI_ErrorCallback(SAI_HandleTypeDef *hsai)
+    {
         gSystem.audioErrorCallback();
-
     }
 
-    void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
-
+    void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
+    {
         gSystem.spiTxRxComplete();
-
     }
 
-    void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi){
-
+    void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
+    {
         gSystem.spiErrorCallback();
-
     }
 
 #ifdef __cplusplus

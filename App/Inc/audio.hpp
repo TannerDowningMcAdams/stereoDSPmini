@@ -1,7 +1,8 @@
 #pragma once
 
 #include "frame.hpp"
-#include "audio_buffer.hpp"
+#include "frame_buffer.hpp"
+#include "status.hpp"
 #include <cstdint>
 
 #ifdef __cplusplus
@@ -25,7 +26,7 @@ public:
     // 24.615385 MHz / (256 * (1+OSR)) = 48076.92382813 where OSR = 1
     static constexpr uint16_t kSampleRate = 48077;
 
-    enum class AudioStatus { BUSY, READY, ERROR };
+    Status status_ = Status::INIT;
 
     void init();
 
@@ -37,8 +38,8 @@ public:
 
     //FloatFrame* getInputBuffer()    { return inputBufferPointer_; }
     //FloatFrame* getOuputBuffer()    { return inputBufferPointer_; }
-    AudioBuffer getInputBuffer();
-    AudioBuffer getOutputBuffer();
+    FrameBuffer getInputBuffer();
+    FrameBuffer getOutputBuffer();
     
 private:
     SAI_HandleTypeDef *txHandle_ = &hsai_BlockA1;
@@ -48,22 +49,19 @@ private:
     bool transmitReady_ = false;
 
     // DMA buffers for SAI transmission and reception
+    // Instantiated in .cpp
     static volatile int32_t audioAdcDataDMA_[kCodecBufferSize];
     static volatile int32_t audioDacDataDMA_[kCodecBufferSize];
-
-    // Cached copy buffers for packing and unpacking
-    // Half size of the DMA buffers to allow for double buffering
-    int32_t audioAdcDataCache_[kBufferSize];
-    int32_t audioDacDataCache_[kBufferSize];
-
     static volatile int32_t *audioInPointer_;
     static volatile int32_t *audioOutPointer_;
 
+    // Cached copy buffers for packing and unpacking
+    // Half the size of the DMA buffers (not double buffered)
+    int32_t audioAdcDataCache_[kBufferSize];
+    int32_t audioDacDataCache_[kBufferSize];
+
     FloatFrame inputBuffer_[kFrameBufferSize];
     FloatFrame outputBuffer_[kFrameBufferSize];
-
-    FloatFrame* inputBufferPointer_;
-    FloatFrame* outputBufferPointer_;
 
     static constexpr float kInt24ToFloat = 1.0f / (1 << 23);
     static constexpr float kFloatToInt24 = (1 << 23);
@@ -71,4 +69,5 @@ private:
     void packUnpackAudioData();
     void audioInitErrorHandler();
     void resetCodec();
+
 } ;

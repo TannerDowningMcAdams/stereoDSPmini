@@ -1,4 +1,3 @@
-#pragma once
 #include "system.hpp"
 #ifdef __cplusplus
 extern "C" {
@@ -12,15 +11,13 @@ extern "C" {
 // Single global system instance
 System gSystem;
 
-extern "C" void App_Run(void) {
-
+extern "C" void App_Run(void)
+{
     // Initialize peripheral objects and interrupts
     gSystem.init();
 
-    for(;;) {
-
+    for(;;)
+    {
         __WFI();
-
     }
-
 }

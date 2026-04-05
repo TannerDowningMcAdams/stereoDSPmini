@@ -3,22 +3,20 @@
 #include "processor.hpp"
 #include <cstring>
 
-void System::init() {
-
+void System::init()
+{
     g0Spi_.init();
     audio_.init();
-    analogDryThru_.init();
-    
+    analogDryThru_.init();   
 }
 
-void System::onAudioReady() {
-
+void System::onAudioReady()
+{
     processor_.processAudioBlock(audio_.getInputBuffer(), audio_.getOutputBuffer());
-
 }
 
-void System::spiTxRxComplete() { 
-
+void System::spiTxRxComplete()
+{ 
     // G0 SPI callback updates internal uiParams
     g0Spi_.txRxComplete(); 
     analogDryThru_.setVcaValue(g0Spi_.params_.vcaValue);
@@ -27,16 +25,15 @@ void System::spiTxRxComplete() {
     ProcessorControls newControls = translateControls(g0Spi_.params_);
     // Update pending parameters for audio processing
     processor_.pushControls(newControls);
-
 }
 
-ProcessorControls translateControls(const uiParams &params) {
-
+ProcessorControls translateControls(const uiParams &params)
+{
     ProcessorControls controls;
     std::memcpy(controls.potentiometers, params.potentiometers, sizeof(controls.potentiometers));
     controls.effectMode = params.modeSwitch;
     controls.beatsPerSecond = params.beatsPerSecond;
     controls.clockPhase = params.clockPhase;
-
+    return controls;
 }
  

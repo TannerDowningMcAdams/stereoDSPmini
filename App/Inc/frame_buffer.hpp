@@ -11,8 +11,15 @@ extern "C" {
 }
 #endif
 
-struct AudioBuffer
-{
+// FrameBuffer is a non-owning view of a FloatFrame array
+// Holds pointer and size, and indexes like array
+// Can be passed by value and read/written in-place
+// Usage:
+// static FloatFrame frameBufferStorage[kBufferSize];
+// FrameBuffer buffer = { frameBufferStorage, kBufferSize };
+
+struct FrameBuffer {
+
     FloatFrame *data;
     uint16_t    size;
 
@@ -24,4 +31,5 @@ struct AudioBuffer
     
     const FloatFrame* begin() const { return data; }
     const FloatFrame* end()   const { return data + size; }
+
 };

@@ -33,7 +33,6 @@ public:
     void spiTxRxComplete();
     void spiErrorCallback();
 
-
 private:
 
     Audio audio_;
@@ -45,5 +44,5 @@ private:
     bool uiParamsLocked_;
 
     ProcessorControls translateControls(const uiParams &params);
-
+    
 } ;

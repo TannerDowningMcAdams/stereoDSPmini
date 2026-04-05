@@ -7,17 +7,14 @@
 
 extern System gSystem;
 
-UNCACHED_RAM int32_t audioAdcDataDMA_[Audio::kCodecBufferSize];
-UNCACHED_RAM int32_t audioDacDataDMA_[Audio::kCodecBufferSize];
+UNCACHED_RAM volatile int32_t Audio::audioAdcDataDMA_[Audio::kCodecBufferSize];
+UNCACHED_RAM volatile int32_t Audio::audioDacDataDMA_[Audio::kCodecBufferSize];
 
-int32_t *audioInPointer_ = &audioAdcDataDMA_[0];
-int32_t *audioOutPointer_ = &audioDacDataDMA_[0];
+volatile int32_t* Audio::audioInPointer_  = &Audio::audioAdcDataDMA_[0];
+volatile int32_t* Audio::audioOutPointer_ = &Audio::audioDacDataDMA_[0];
 
-void Audio::init() {
-
-    inputBufferPointer_ = &inputBuffer_[0];
-    outputBufferPointer_ = &outputBuffer_[0];
-
+void Audio::init() 
+{
     resetCodec();
 
     HAL_StatusTypeDef txStatus = HAL_SAI_Transmit_DMA(txHandle_, (uint8_t *) audioDacDataDMA_, kBufferSize);
@@ -26,11 +23,10 @@ void Audio::init() {
     if (txStatus != HAL_OK || rxStatus != HAL_OK) { audioInitErrorHandler(); }
 
     //else{ return Status::READY; }
-
 }
 
-void Audio::packUnpackAudioData() {
-
+void Audio::packUnpackAudioData() 
+{
     for(int n = 0; n < kBufferSize - 1; n+=2) 
     {
         FloatFrame frame = outputBuffer_[n/2];
@@ -41,7 +37,6 @@ void Audio::packUnpackAudioData() {
     }
 
     std::memcpy(const_cast<int32_t*>(audioOutPointer_), audioDacDataCache_, sizeof(audioDacDataCache_));
-
     std::memcpy(audioAdcDataCache_, const_cast<int32_t*>(audioInPointer_), sizeof(audioAdcDataCache_));
 
     for(int n = 0; n < kBufferSize; n++) 
@@ -70,59 +65,51 @@ void Audio::packUnpackAudioData() {
     transmitReady_ = false;
 
     gSystem.onAudioReady();
-
 }
 
-void Audio::rxHalfComplete() {
-
+void Audio::rxHalfComplete()
+{
     audioInPointer_ = &audioAdcDataDMA_[0];
     receiveReady_ = true;
     if(transmitReady_) { packUnpackAudioData(); }
-
 }
 
-void Audio::rxComplete() {
-
+void Audio::rxComplete()
+{
     audioInPointer_ = &audioAdcDataDMA_[kBufferSize];
     receiveReady_ = true;
     if(transmitReady_) { packUnpackAudioData(); }
-
 }
 
-void Audio::txHalfComplete() {
-
+void Audio::txHalfComplete()
+{
     audioOutPointer_ = &audioDacDataDMA_[0];
     transmitReady_ = true;
     if (receiveReady_) { packUnpackAudioData(); }
-
 }
 
-void Audio::txComplete() {
-
+void Audio::txComplete()
+{
     audioOutPointer_ = &audioDacDataDMA_[kBufferSize];
     transmitReady_ = true;
     if (receiveReady_) { packUnpackAudioData(); }
-
 }
 
-AudioBuffer Audio::getInputBuffer() {
-
-    return {inputBufferPointer_, kFrameBufferSize};
-
+FrameBuffer Audio::getInputBuffer()
+{
+    return {inputBuffer_, kFrameBufferSize};
 }
 
-AudioBuffer Audio::getOutputBuffer() {
-
-    return {outputBufferPointer_, kFrameBufferSize};
-
+FrameBuffer Audio::getOutputBuffer()
+{
+    return {outputBuffer_, kFrameBufferSize};
 }
 
-void Audio::resetCodec() {
-
+void Audio::resetCodec()
+{
     HAL_GPIO_WritePin(CODEC_NRST_GPIO_Port, CODEC_NRST_Pin, GPIO_PIN_RESET);
     HAL_Delay(50);
     HAL_GPIO_WritePin(CODEC_NRST_GPIO_Port, CODEC_NRST_Pin, GPIO_PIN_SET);
     HAL_Delay(50);
-
 }
 
