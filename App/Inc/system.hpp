@@ -29,9 +29,9 @@ public:
     inline void audioRxComplete()       { audio_.rxComplete(); }
     inline void audioTxHalfComplete()   { audio_.txHalfComplete(); }
     inline void audioTxComplete()       { audio_.txComplete(); }
-    void audioErrorCallback();
+    inline void audioErrorCallback()    { audio_.audioErrorHandler(); }
     void spiTxRxComplete();
-    void spiErrorCallback();
+    void spiErrorCallback()             { g0Spi_.spiErrorHandler(); }
 
 private:
 
@@ -40,7 +40,16 @@ private:
     Relay relay_;
     AnalogDryThru analogDryThru_;
     Processor processor_;
-    uiParams uiParams_;
+    static constexpr uiParams defaultParams_ = {
+        {0.5, 0.5, 0.5, 0.5, 0.5},
+        false,
+        false,
+        true,
+        0,
+        0,
+        2.0f,
+        0
+    };
     bool uiParamsLocked_;
 
     ProcessorControls translateControls(const uiParams &params);

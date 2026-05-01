@@ -26,7 +26,7 @@ public:
 
     void init(); 
     void txRxComplete() { packUnpackSpiData(); }
-    void spiErrorCallback();
+    void spiErrorHandler();
     
 private:
 
@@ -37,18 +37,13 @@ private:
     static constexpr float int12ToFloat = 1.0f / 4095.0f;
 
     // DMA buffers for SPI transmission and reception
-    static volatile uint16_t spiRxDataDMA_[kSpiPacketWords];
-    static volatile uint16_t spiTxDataDMA_[kSpiPacketWords];
-    
-    // Cached copy buffers excluding CRC word
-    int16_t spiRxDataCache_[kSpiPacketWords - 1];
-    int16_t spiTxDataCache_[kSpiPacketWords - 1];
-
-    SpiControlPacket incomingPacket_;
+    static volatile SpiControlPacket rxPacketDMA_;
+    static volatile SpiControlPacket txPacketDMA_;
 
     void packUnpackSpiData();
     void parseControlPacket();
-    void spiErrorHandler();
+    void initErrorHandler();
+    void recoverFromError();
 } ;
 
 

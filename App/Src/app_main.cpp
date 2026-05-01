@@ -16,6 +16,7 @@ extern "C" void App_Run(void)
     // Initialize peripheral objects and interrupts
     gSystem.init();
 
+    // All processes are interrupt-driven
     for(;;)
     {
         __WFI();

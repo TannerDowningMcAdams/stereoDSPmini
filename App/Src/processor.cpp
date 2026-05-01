@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <cstring>
 
-void Processor::init(float sampleRate)
+void Processor::init(uint16_t sampleRate)
 {
     sampleRate_ = sampleRate;
     samplePeriod_ = 1.0f / sampleRate;

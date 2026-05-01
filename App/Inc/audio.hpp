@@ -3,6 +3,8 @@
 #include "frame.hpp"
 #include "frame_buffer.hpp"
 #include "status.hpp"
+#include "stm32h7xx_hal_def.h"
+#include "stm32h7xx_hal_dma.h"
 #include <cstdint>
 
 #ifdef __cplusplus
@@ -34,16 +36,16 @@ public:
     void rxComplete();
     void txHalfComplete();
     void txComplete();
-    void saiErrorHandler();
+    void audioErrorHandler();
 
-    //FloatFrame* getInputBuffer()    { return inputBufferPointer_; }
-    //FloatFrame* getOuputBuffer()    { return inputBufferPointer_; }
     FrameBuffer getInputBuffer();
     FrameBuffer getOutputBuffer();
     
 private:
-    SAI_HandleTypeDef *txHandle_ = &hsai_BlockA1;
-    SAI_HandleTypeDef *rxHandle_ = &hsai_BlockB1;
+    SAI_HandleTypeDef* txHandle_ = &hsai_BlockA1;
+    SAI_HandleTypeDef* rxHandle_ = &hsai_BlockB1;
+    //DMA_HandleTypeDef* dmaTxHandle_ = &hdma_sai1_a;
+    //DMA_HandleTypeDef* dmaRxHandle_ = &hdma_sai1_b;
 
     bool receiveReady_ = false;
     bool transmitReady_ = false;
@@ -66,8 +68,13 @@ private:
     static constexpr float kInt24ToFloat = 1.0f / (1 << 23);
     static constexpr float kFloatToInt24 = (1 << 23);
 
+    uint32_t errorState_ = 0;
+    uint32_t errorCount_ = 0;
+
     void packUnpackAudioData();
-    void audioInitErrorHandler();
+    void initErrorHandler();
+    void recoverFromError(uint32_t saiErrorCode);
     void resetCodec();
+    HAL_StatusTypeDef startDMA();
 
 } ;

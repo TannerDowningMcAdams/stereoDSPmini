@@ -15,6 +15,7 @@ void AnalogDryThru::init()
     currentValue_ = 0;
 }
 
+// Set SSI2162 (dry signal) to specified value
 void AnalogDryThru::setVcaValue(uint16_t dryStrength)
 {
     // 12 bit mask

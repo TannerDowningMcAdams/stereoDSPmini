@@ -31,7 +31,7 @@ public:
 
     //enum class AudioStatus { BUSY, READY, ERROR };
 
-    void init(float sampleRate);
+    void init(uint16_t sampleRate);
 
     void processAudioBlock(FrameBuffer input, FrameBuffer output);
     FloatFrame processLeftRight(FloatFrame frame);
