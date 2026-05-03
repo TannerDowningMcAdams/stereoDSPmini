@@ -1,6 +1,7 @@
 #include "system.hpp"
 #include "g0_spi.hpp"
 #include "processor.hpp"
+#include "relay.hpp"
 #include <cstring>
 
 void System::init()
@@ -10,6 +11,8 @@ void System::init()
     analogDryThru_.init();
     processor_.init(audio_.kSampleRate);
     processor_.pushControls(translateControls(defaultParams_));
+    relay_.rightOn();
+    relay_.leftOn();
 }
 
 // Signal from Audio that new data is formatted and ready to process

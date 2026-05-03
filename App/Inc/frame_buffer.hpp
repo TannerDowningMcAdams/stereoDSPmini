@@ -11,6 +11,7 @@ extern "C" {
 }
 #endif
 
+
 // FrameBuffer is a non-owning view of a FloatFrame array
 // Holds pointer and size, and indexes like array
 // Can be passed by value and read/written in-place

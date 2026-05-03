@@ -130,9 +130,9 @@ void Audio::resetCodec()
 
 HAL_StatusTypeDef Audio::startDMA()
 { 
-    HAL_StatusTypeDef txStatus = HAL_SAI_Transmit_DMA(txHandle_, (uint8_t *) audioDacDataDMA_, kBufferSize);
+    HAL_StatusTypeDef txStatus = HAL_SAI_Transmit_DMA(txHandle_, (uint8_t *) audioDacDataDMA_, kCodecBufferSize);
     if (txStatus != HAL_OK) { return  txStatus; }
-    else { return HAL_SAI_Receive_DMA(rxHandle_, (uint8_t *) audioAdcDataDMA_, kBufferSize); }
+    else { return HAL_SAI_Receive_DMA(rxHandle_, (uint8_t *) audioAdcDataDMA_, kCodecBufferSize); }
 }
 
 void Audio::audioErrorHandler()

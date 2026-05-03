@@ -1,3 +1,4 @@
+
 class Effect {
 
 public:
@@ -9,6 +10,6 @@ public:
 
     // Virtual with default - derived class MAY override
     virtual void  onTempoUpdate(float bpm, float phase) { }
-    virtual void  init() { }
+    virtual void  init(uint16_t sampleRate, uint32_t blockSize) { }
 
 };

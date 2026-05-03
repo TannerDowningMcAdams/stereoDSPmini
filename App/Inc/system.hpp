@@ -42,8 +42,8 @@ private:
     Processor processor_;
     static constexpr uiParams defaultParams_ = {
         {0.5, 0.5, 0.5, 0.5, 0.5},
-        false,
-        false,
+        true,
+        true,
         true,
         0,
         0,
