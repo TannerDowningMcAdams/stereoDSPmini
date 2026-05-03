@@ -7,7 +7,7 @@
 #endif
 
 
-namespace stmdsp {
+namespace dsp {
 
     namespace math {
     
@@ -20,5 +20,6 @@ namespace stmdsp {
     }
 
     class Effect;
-
+    class AudioBuffer;
+    
 }

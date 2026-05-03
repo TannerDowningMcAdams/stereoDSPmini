@@ -1,5 +1,6 @@
 #pragma once
 
+#include "audio_buffer.hpp"
 #include "frame.hpp"
 #include "frame_buffer.hpp"
 #include "ui_params.hpp"
@@ -33,8 +34,8 @@ public:
 
     void init(uint16_t sampleRate);
 
-    void processAudioBlock(FrameBuffer input, FrameBuffer output);
-    FloatFrame processLeftRight(FloatFrame frame);
+    void processAudioBlock(dsp::AudioBuffer input, dsp::AudioBuffer output);
+    void processLeftRight(dsp::AudioBuffer input, dsp::AudioBuffer output);
     void pushControls(const ProcessorControls &controls);
     
 private:

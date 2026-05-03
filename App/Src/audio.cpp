@@ -1,10 +1,12 @@
 #include "audio.hpp"
+#include "audio_buffer.hpp"
 #include "frame.hpp"
 #include "main.h"
 #include "status.hpp"
 #include "stm32h7xx_hal_def.h"
 #include "stm32h7xx_hal_sai.h"
 #include "system.hpp"
+#include "dsp.hpp"
 #include <cstdint>
 #include <cstring>
 
@@ -22,8 +24,10 @@ void Audio::init()
     // Clear out audio buffers
     memset((void*)audioAdcDataDMA_, 0, sizeof(audioAdcDataDMA_));
     memset((void*)audioDacDataDMA_, 0, sizeof(audioDacDataDMA_));
-    memset(audioAdcDataCache_, 0, sizeof(audioAdcDataCache_));
-    memset(audioDacDataCache_, 0, sizeof(audioDacDataCache_));
+    memset(leftInputBuffer_,   0.0f,  sizeof(leftInputBuffer_));
+    memset(rightInputBuffer_,  0.0f,  sizeof(rightInputBuffer_));
+    memset(leftOutputBuffer_,  0.0f,  sizeof(leftOutputBuffer_));
+    memset(rightOutputBuffer_, 0.0f,  sizeof(rightOutputBuffer_));
     // Initialization and check
     resetCodec();
     HAL_StatusTypeDef dmaStatus = startDMA();
@@ -33,37 +37,13 @@ void Audio::init()
 
 void Audio::packUnpackAudioData() 
 {
-    // Iterate over DAC array left+right pairs
-    for(int n = 0; n < kBufferSize - 1; n+=2) 
-    {
-        // outputBuffer holds left+right pairs in the form of FloatFrames
-        FloatFrame frame = outputBuffer_[n/2]; 
-        // Conversion to signed int32
-        int32_t leftSample = static_cast<int32_t>(frame.left * kFloatToInt24);
-        int32_t rightSample = static_cast<int32_t>(frame.right * kFloatToInt24);
-        // Left justification in a 32-bit frame
-        audioDacDataCache_[n] = leftSample << 8;
-        audioDacDataCache_[n+1] = rightSample << 8;
-    }
+    // Buffers are volatile but DMA is safely on the other side
+    // Const cast for optimized read/write speed
+    int32_t* dst = const_cast<int32_t*>(audioOutPointer_);
+    int32_t* src = const_cast<int32_t*>(audioInPointer_);
 
-    // Place DAC data in DMA array and retrieve ADC data
-    std::memcpy(const_cast<int32_t*>(audioOutPointer_), audioDacDataCache_, sizeof(audioDacDataCache_));
-    std::memcpy(audioAdcDataCache_, const_cast<int32_t*>(audioInPointer_), sizeof(audioAdcDataCache_));
-
-    for(int n = 0; n < kBufferSize; n++) 
-    {
-        // Right shift data from left-justified frame
-        audioAdcDataCache_[n] = audioAdcDataCache_[n] >> 8;
-    }
-
-    // Store left+right pairs in FloatFrame array inputBuffer_
-    for(int n = 0; n < kBufferSize - 1; n+=2) 
-    {
-        FloatFrame frame;
-        frame.left = static_cast<float>((audioAdcDataCache_[n]) * kInt24ToFloat);
-        frame.right = static_cast<float>((audioAdcDataCache_[n+1]) * kInt24ToFloat);
-        inputBuffer_[n/2] = frame;
-    }
+    outputBuffer_.toInterleaved(dst, kFloatToInt24, 8);
+    inputBuffer_.fromInterleaved(src, kInt24ToFloat, 8);
 
     // Reset flags
     receiveReady_ = false;
@@ -103,20 +83,6 @@ void Audio::txComplete()
     audioOutPointer_ = &audioDacDataDMA_[kCodecBufferSize/2];
     transmitReady_ = true;
     if (receiveReady_) { packUnpackAudioData(); }
-}
-
-// Return inputBuffer_ (FloatFrame array) as non-owning FrameBuffer
-// FrameBuffer holds pointer to FloatFrame array and size
-FrameBuffer Audio::getInputBuffer()
-{
-    return {inputBuffer_, kFrameBufferSize};
-}
-
-// Return outputBuffer_ (FloatFrame array) as non-owning FrameBuffer
-// FrameBuffer holds pointer to FloatFrame array and size
-FrameBuffer Audio::getOutputBuffer()
-{
-    return {outputBuffer_, kFrameBufferSize};
 }
 
 void Audio::resetCodec()

@@ -1,4 +1,5 @@
 #include "processor.hpp"
+#include "audio_buffer.hpp"
 #include <cstdint>
 #include <cstring>
 
@@ -10,7 +11,7 @@ void Processor::init(uint16_t sampleRate)
 // Initialize DSP, buffers, etc
 }
 
-void Processor::processAudioBlock(FrameBuffer input, FrameBuffer output)
+void Processor::processAudioBlock(dsp::AudioBuffer input, dsp::AudioBuffer output)
 {
     if(controlsReady_)
     {
@@ -19,16 +20,25 @@ void Processor::processAudioBlock(FrameBuffer input, FrameBuffer output)
         controlsReady_ = false;
     }
 
-    for (uint16_t i = 0; i < input.size; i++)
-    {
-        output[i] = processLeftRight(input[i]);
-    }
+    // Block Processing here
+
+    //processLeftRight(input, output);
+    
 }
 
-FloatFrame Processor::processLeftRight(FloatFrame frame)
+// Per-Sample processing for non-block processing
+void processLeftRight(dsp::AudioBuffer input, dsp::AudioBuffer output)
 {
-    // Per-sample processing applied to frame.left and frame.right
-    return frame;
+
+    for(uint16_t i = 0; i < input.size(); i++)
+    {
+        float left = input.leftAt(i);
+        float right = input.rightAt(i);
+        
+        output.setLeft(i, left);
+        output.setRight(i,  right);
+    }
+
 }
 
 void Processor::updateAlgorithmParams()

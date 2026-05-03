@@ -1,6 +1,6 @@
 #pragma once
 #include "audio.hpp"
-#include "frame.hpp"
+#include "audio_buffer.hpp"
 #include "ui_params.hpp"
 #include "relay.hpp"
 #include "g0_spi.hpp"
