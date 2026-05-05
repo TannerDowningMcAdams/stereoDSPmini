@@ -15,22 +15,23 @@ public:
     AudioBuffer(float* left, float* right, uint16_t size)
         : left_(left), right_(right), size_(size) {}
 
+    // Pointer-level buffer access
     float*       left()        { return left_; }
     const float* left()  const { return left_; }
     float*       right()       { return right_; }
     const float* right() const { return right_; }
     uint16_t     size()  const { return size_; }
 
-    // --- Per-sample access ---
+    // Per-sample buffer access
     float&       leftAt(uint16_t i)        { return left_[i]; }
     const float& leftAt(uint16_t i)  const { return left_[i]; }
     float&       rightAt(uint16_t i)       { return right_[i]; }
-    const float& rightAt(uint16_t i) const { return left_[i]; }
+    const float& rightAt(uint16_t i) const { return right_[i]; }
 
     void setLeft(uint16_t i,  float value) { left_[i]  = value; }
     void setRight(uint16_t i, float value) { right_[i] = value; }
 
-    // --- Validity ---
+    // Check for a valid buffer
     bool valid() const { return left_ && right_ && size_ > 0; }
 
     // Deinterleave int32 DMA input into planar float

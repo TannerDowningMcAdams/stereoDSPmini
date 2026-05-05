@@ -8,7 +8,7 @@ void Processor::init(uint16_t sampleRate)
     sampleRate_ = sampleRate;
     samplePeriod_ = 1.0f / sampleRate;
 
-// Initialize DSP, buffers, etc
+    // Initialize DSP, buffers, etc
 }
 
 void Processor::processAudioBlock(dsp::AudioBuffer input, dsp::AudioBuffer output)
@@ -20,14 +20,15 @@ void Processor::processAudioBlock(dsp::AudioBuffer input, dsp::AudioBuffer outpu
         controlsReady_ = false;
     }
 
+
     // Block Processing here
 
-    //processLeftRight(input, output);
+    processLeftRight(input, output);
     
 }
 
 // Per-Sample processing for non-block processing
-void processLeftRight(dsp::AudioBuffer input, dsp::AudioBuffer output)
+void Processor::processLeftRight(dsp::AudioBuffer input, dsp::AudioBuffer output)
 {
 
     for(uint16_t i = 0; i < input.size(); i++)

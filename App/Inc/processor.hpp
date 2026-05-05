@@ -4,6 +4,7 @@
 #include "frame.hpp"
 #include "frame_buffer.hpp"
 #include "ui_params.hpp"
+using dsp::AudioBuffer;
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,7 +1,6 @@
 {
 "version": "0.2.0",
 "configurations": [
-
     {
         "type": "stlinkgdbtarget",
         "request": "launch",
@@ -15,6 +14,20 @@
                 "imageFileName": "${command:st-stm32-ide-debug-launch.get-projects-binary-from-context1}"
             }
         ]
+    },
+    {
+        "name": "MY BUG",
+        "type": "stlinkgdbtarget",
+        "request": "launch",
+        "cwd": "${workspaceFolder}",
+        "preBuild": "${command:st-stm32-ide-debug-launch.build}",
+        "runEntry": "main",
+        "imagesAndSymbols": [
+            {
+                "imageFileName": "${workspaceFolder}/build/Debug/stereoDSPminiH7.elf"
+            }
+        ],
+        "verbose": false
     }
 ]
 }

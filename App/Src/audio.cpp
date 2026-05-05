@@ -37,13 +37,16 @@ void Audio::init()
 
 void Audio::packUnpackAudioData() 
 {
-    // Buffers are volatile but DMA is safely on the other side
-    // Const cast for optimized read/write speed
-    int32_t* dst = const_cast<int32_t*>(audioOutPointer_);
-    int32_t* src = const_cast<int32_t*>(audioInPointer_);
+    // SAFETY:
+    // DMA is currently operating on the opposite half-buffer
+    // This region is stable for the duration of this function
+    // Therefore, it is safe to treat as non-volatile for performance
 
-    outputBuffer_.toInterleaved(dst, kFloatToInt24, 8);
+    const int32_t* src = const_cast<const int32_t*>(audioInPointer_);
+    int32_t* dst = const_cast<int32_t*>(audioOutPointer_);
+
     inputBuffer_.fromInterleaved(src, kInt24ToFloat, 8);
+    outputBuffer_.toInterleaved(dst, kFloatToInt24, 8);
 
     // Reset flags
     receiveReady_ = false;
