@@ -7,30 +7,31 @@
 #include "system.hpp"
 #include "dsp.hpp"
 #include <cstdint>
-#include <cstring>
 #include <algorithm>
 #include <iterator>
 
 extern System gSystem;
 
 // DMA buffers are placed in an uncached SRAM carve-out to prevent cache coherency issues
-UNCACHED_RAM volatile int32_t Audio::audioAdcDataDMA_[Audio::kCodecBufferSize];
-UNCACHED_RAM volatile int32_t Audio::audioDacDataDMA_[Audio::kCodecBufferSize];
+UNCACHED_RAM int32_t Audio::audioAdcDataDMA_[Audio::kCodecBufferSize];
+UNCACHED_RAM int32_t Audio::audioDacDataDMA_[Audio::kCodecBufferSize];
 
-volatile int32_t* Audio::audioInPointer_  = &Audio::audioAdcDataDMA_[0];
-volatile int32_t* Audio::audioOutPointer_ = &Audio::audioDacDataDMA_[0];
+// ISR handoff. Seeded to 1 so the first half-transfer interrupt moves it to 0.
+volatile uint32_t Audio::offset_ = 1u;
 
 void Audio::init() 
 {
-    // Clear out audio buffers
-    memset((void*)audioAdcDataDMA_, 0, sizeof(audioAdcDataDMA_));
-    memset((void*)audioDacDataDMA_, 0, sizeof(audioDacDataDMA_));
-    // std::fill, not memset: memset takes a byte value, so any nonzero float
-    // fill would be silently wrong. 0.0f only worked by converting to 0.
+    // memset takes a byte value, so a nonzero float fill would be silently
+    // wrong; std::fill keeps all six buffers consistent.
+    std::fill(std::begin(audioAdcDataDMA_),   std::end(audioAdcDataDMA_),   0);
+    std::fill(std::begin(audioDacDataDMA_),   std::end(audioDacDataDMA_),   0);
     std::fill(std::begin(leftInputBuffer_),   std::end(leftInputBuffer_),   0.0f);
     std::fill(std::begin(rightInputBuffer_),  std::end(rightInputBuffer_),  0.0f);
     std::fill(std::begin(leftOutputBuffer_),  std::end(leftOutputBuffer_),  0.0f);
     std::fill(std::begin(rightOutputBuffer_), std::end(rightOutputBuffer_), 0.0f);
+
+    offset_ = 1u;
+
     // Initialization and check
     resetCodec();
     HAL_StatusTypeDef dmaStatus = startDMA();
@@ -38,57 +39,37 @@ void Audio::init()
     else { status_ = Status::OK; }
 }
 
-void Audio::packUnpackAudioData() 
+void Audio::serviceBlock() 
 {
-    // SAFETY:
-    // DMA is currently operating on the opposite half-buffer
-    // This region is stable for the duration of this function
-    // Therefore, it is safe to treat as non-volatile for performance
+    // One volatile read per block, so both rings are addressed consistently if
+    // the master's interrupt lands mid-function.
+    const uint32_t half = offset_;
 
-    const int32_t* src = const_cast<const int32_t*>(audioInPointer_);
-    int32_t* dst = const_cast<int32_t*>(audioOutPointer_);
+    // DMA owns the opposite half for the duration of this call, so these two
+    // never alias and the region is stable.
+    const int32_t* __restrict src = audioAdcDataDMA_ + (half * kHalfWords);
+    int32_t*       __restrict dst = audioDacDataDMA_ + (half * kHalfWords);
 
-    inputBuffer_.fromInterleaved(src, kInt24ToFloat, 8);
-    outputBuffer_.toInterleaved(dst, kFloatToInt24, 8);
-
-    // Reset flags
-    receiveReady_ = false;
-    transmitReady_ = false;
+    inputBuffer_.fromInterleaved(src, kInt24ToFloat, kDmaWordShift);
 
     // Call to System to pass audio data to Processor
     gSystem.onAudioReady();
+
+    outputBuffer_.toInterleaved(dst, kFloatToInt24, kDmaWordShift);
 }
 
-void Audio::rxHalfComplete()
-{
-    // Set access pointer to the first half of the DMA array
-    audioInPointer_ = &audioAdcDataDMA_[0];
-    receiveReady_ = true;
-    if(transmitReady_) { packUnpackAudioData(); }
-}
-
-void Audio::rxComplete()
-{
-    // Set access pointer to the second half of the DMA array
-    audioInPointer_ = &audioAdcDataDMA_[kCodecBufferSize/2];
-    receiveReady_ = true;
-    if(transmitReady_) { packUnpackAudioData(); }
-}
-
+// A1 is the clock master and the only block still interrupting, so these publish
+// the half for both rings: at half-transfer the DAC half is sent, the ADC filled.
 void Audio::txHalfComplete()
 {
-    // Set access pointer to the first half of the DMA array
-    audioOutPointer_ = &audioDacDataDMA_[0];
-    transmitReady_ = true;
-    if (receiveReady_) { packUnpackAudioData(); }
+    offset_ = 0u;
+    serviceBlock();
 }
 
 void Audio::txComplete()
 {
-    // Set access pointer to the second half of the DMA array
-    audioOutPointer_ = &audioDacDataDMA_[kCodecBufferSize/2];
-    transmitReady_ = true;
-    if (receiveReady_) { packUnpackAudioData(); }
+    offset_ = 1u;
+    serviceBlock();
 }
 
 void Audio::resetCodec()
@@ -100,13 +81,30 @@ void Audio::resetCodec()
     HAL_Delay(50);
 }
 
-HAL_StatusTypeDef Audio::startDMA()
-{ 
-    HAL_StatusTypeDef txStatus = HAL_SAI_Transmit_DMA(txHandle_, (uint8_t *) audioDacDataDMA_, kCodecBufferSize);
-    if (txStatus != HAL_OK) { return  txStatus; }
-    else { return HAL_SAI_Receive_DMA(rxHandle_, (uint8_t *) audioAdcDataDMA_, kCodecBufferSize); }
+void Audio::maskBlockInterrupts(DMA_HandleTypeDef* hdma)
+{
+    if (hdma == nullptr) { return; }
+
+    // Legal with the stream running, and leaves TEIE and DMEIE armed so
+    // SAI_DMAError() still reaches audioErrorHandler().
+    __HAL_DMA_DISABLE_IT(hdma, DMA_IT_HT | DMA_IT_TC);
 }
 
+HAL_StatusTypeDef Audio::startDMA()
+{ 
+    // B1 is the synchronous slave and is enabled first: SCK and FS only go live
+    // on master A1's enable, so B1 must be listening to lock the first frame.
+    HAL_StatusTypeDef rxStatus = HAL_SAI_Receive_DMA(rxHandle_, (uint8_t *) audioAdcDataDMA_, kCodecBufferSize);
+    if (rxStatus != HAL_OK) { return rxStatus; }
+
+    // The slave crosses the same midpoint on the same frame as the master, so
+    // its block interrupts add only a race. Masked after HAL enables them.
+    maskBlockInterrupts(rxHandle_->hdmarx);
+
+    // Clocks start here.
+    offset_ = 1u;
+    return HAL_SAI_Transmit_DMA(txHandle_, (uint8_t *) audioDacDataDMA_, kCodecBufferSize);
+}
 void Audio::audioErrorHandler()
 {
     uint32_t txError = HAL_SAI_GetError(txHandle_);
