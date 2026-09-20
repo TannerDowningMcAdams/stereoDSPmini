@@ -12,8 +12,8 @@ extern "C" {
 enum class Status : uint8_t
 {
     OK      = 0,
-    BUSY    = 1,
-    ERROR   = 2,
+    ERROR   = 1,
+    BUSY    = 2,
     TIMEOUT = 3,
     INIT    = 4   // Not yet initialized
 };
