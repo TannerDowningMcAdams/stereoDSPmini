@@ -59,6 +59,8 @@ private:
     // The shift goes through uint32_t because left-shifting a negative signed
     // value is undefined behaviour.
     static int32_t packSample(float sample, float scale, uint16_t shift) {
+        // NaN fails both clamp comparisons, so it is handled here.
+        if (sample != sample) { sample = 0.0f; }
         if (sample >  kFullScale) { sample =  kFullScale; }
         if (sample < -kFullScale) { sample = -kFullScale; }
         const uint32_t word = static_cast<uint32_t>(static_cast<int32_t>(sample * scale));
