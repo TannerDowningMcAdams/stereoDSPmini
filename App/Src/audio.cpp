@@ -8,6 +8,8 @@
 #include "dsp.hpp"
 #include <cstdint>
 #include <cstring>
+#include <algorithm>
+#include <iterator>
 
 extern System gSystem;
 
@@ -23,10 +25,12 @@ void Audio::init()
     // Clear out audio buffers
     memset((void*)audioAdcDataDMA_, 0, sizeof(audioAdcDataDMA_));
     memset((void*)audioDacDataDMA_, 0, sizeof(audioDacDataDMA_));
-    memset(leftInputBuffer_,   0.0f,  sizeof(leftInputBuffer_));
-    memset(rightInputBuffer_,  0.0f,  sizeof(rightInputBuffer_));
-    memset(leftOutputBuffer_,  0.0f,  sizeof(leftOutputBuffer_));
-    memset(rightOutputBuffer_, 0.0f,  sizeof(rightOutputBuffer_));
+    // std::fill, not memset: memset takes a byte value, so any nonzero float
+    // fill would be silently wrong. 0.0f only worked by converting to 0.
+    std::fill(std::begin(leftInputBuffer_),   std::end(leftInputBuffer_),   0.0f);
+    std::fill(std::begin(rightInputBuffer_),  std::end(rightInputBuffer_),  0.0f);
+    std::fill(std::begin(leftOutputBuffer_),  std::end(leftOutputBuffer_),  0.0f);
+    std::fill(std::begin(rightOutputBuffer_), std::end(rightOutputBuffer_), 0.0f);
     // Initialization and check
     resetCodec();
     HAL_StatusTypeDef dmaStatus = startDMA();

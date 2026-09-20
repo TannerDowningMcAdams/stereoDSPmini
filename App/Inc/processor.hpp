@@ -23,7 +23,7 @@ public:
 
     //enum class AudioStatus { BUSY, READY, ERROR };
 
-    void init(uint16_t sampleRate);
+    void init(uint32_t sampleRate);
 
     void processAudioBlock(dsp::AudioBuffer input, dsp::AudioBuffer output);
     void processLeftRight(dsp::AudioBuffer input, dsp::AudioBuffer output);
@@ -31,7 +31,7 @@ public:
     
 private:
 
-    uint16_t sampleRate_;
+    uint32_t sampleRate_;
     float samplePeriod_;
 
     void updateAlgorithmParams();

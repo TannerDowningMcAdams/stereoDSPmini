@@ -25,7 +25,7 @@ public:
     static constexpr uint16_t kBufferSize = kCodecBufferSize / 2;
     static constexpr uint16_t kBlockSize = kBufferSize / 2;
     // 24.615385 MHz / (256 * (1+OSR)) = 48076.92382813 where OSR = 1
-    static constexpr uint16_t kSampleRate = 48077;
+    static constexpr uint32_t kSampleRate = 48077;
 
     Status status_ = Status::INIT;
 

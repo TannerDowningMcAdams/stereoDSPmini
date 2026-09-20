@@ -21,7 +21,7 @@ extern System gSystem;
 
 void G0Spi::init()
 {
-    HAL_StatusTypeDef spiTxRxStatus = HAL_SPI_TransmitReceive_DMA(handle_, (uint8_t *)&rxPacketDMA_, (uint8_t *)&txPacketDMA_, kSpiPacketWords);
+    HAL_StatusTypeDef spiTxRxStatus = HAL_SPI_TransmitReceive_DMA(handle_, (uint8_t *)&txPacketDMA_, (uint8_t *)&rxPacketDMA_, kSpiPacketWords);
     
     if (spiTxRxStatus != HAL_OK) 
     {
