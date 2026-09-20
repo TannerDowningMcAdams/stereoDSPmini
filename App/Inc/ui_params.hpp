@@ -1,14 +1,6 @@
 #pragma once
 #include <cstdint>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef __cplusplus
-}
-#endif
-
 struct uiParams {
 
     float potentiometers[5];
