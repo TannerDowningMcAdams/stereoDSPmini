@@ -39,3 +39,6 @@ Thumbs.db
 
 # STM32CubeIDE workspace metadata
 ../.metadata/
+
+# Internal Documentation
+docs/
