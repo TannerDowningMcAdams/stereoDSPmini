@@ -8,7 +8,7 @@ void System::init()
 {
     g0Spi_.init();
     audio_.init();
-    analogDryThru_.init();
+    analogDryThru_.init();  
     processor_.init(audio_.kSampleRate);
     processor_.pushControls(translateControls(defaultParams_));
     relay_.rightOn();

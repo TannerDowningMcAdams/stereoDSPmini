@@ -23,7 +23,6 @@ public:
 
     void init();
     void onAudioReady();
-    void onParamsReady();
 
     inline void audioRxHalfComplete()   { audio_.rxHalfComplete(); }
     inline void audioRxComplete()       { audio_.rxComplete(); }
@@ -50,7 +49,6 @@ private:
         2.0f,
         0
     };
-    bool uiParamsLocked_;
 
     ProcessorControls translateControls(const uiParams &params);
     
