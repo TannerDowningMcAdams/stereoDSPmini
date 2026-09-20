@@ -1,6 +1,5 @@
 #include "audio.hpp"
 #include "audio_buffer.hpp"
-#include "frame.hpp"
 #include "main.h"
 #include "status.hpp"
 #include "stm32h7xx_hal_def.h"

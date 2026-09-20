@@ -7,7 +7,7 @@ namespace dsp {
 
 // Non-owning planar stereo audio buffer.
 // Backing storage is managed by the caller (typically static or DMA-adjacent).
-// Passed by value between Audio, Processor, and System — cheap, no heap.
+// Passed by value between Audio, Processor, and System
 class AudioBuffer {
 public:
     AudioBuffer() = default;

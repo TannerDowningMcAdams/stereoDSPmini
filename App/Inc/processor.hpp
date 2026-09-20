@@ -1,18 +1,8 @@
 #pragma once
 
 #include "audio_buffer.hpp"
-#include "frame.hpp"
-#include "frame_buffer.hpp"
 #include "ui_params.hpp"
 using dsp::AudioBuffer;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef __cplusplus
-}
-#endif
 
 #include <cstdint>
 
