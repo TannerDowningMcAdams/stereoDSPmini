@@ -42,8 +42,9 @@ private:
 
     void packUnpackSpiData();
     void parseControlPacket();
-    void initErrorHandler();
-    void recoverFromError();
+    // TODO
+    // void initErrorHandler();
+    // void recoverFromError();
 } ;
 
 
