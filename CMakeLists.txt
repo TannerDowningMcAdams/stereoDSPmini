@@ -47,15 +47,17 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     
 )
 
-# Collect source files
-file(GLOB_RECURSE APP_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/App/Src/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/App/Src/*.c"
-)
-
-# Add sources to executable
+# Application sources are listed explicitly: a glob does not re-run when files
+# are added, and it silently swept in whatever was left lying in App/Src.
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    ${APP_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/analog_dry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/app_main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/audio.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/callbacks.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/g0_spi.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/processor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/relay.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/system.cpp
 )
 
 # Add include paths
