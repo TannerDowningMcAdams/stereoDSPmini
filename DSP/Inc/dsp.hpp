@@ -1,3 +1,8 @@
+#pragma once
+
+// Selects the math backend the DSP layer builds against. The CMSIS path is the
+// only one implemented; the alternative exists so the same DSP sources can be
+// compiled off-target (JUCE, tests) later.
 #define DSP_USE_CMSIS
 
 #ifdef DSP_USE_CMSIS
@@ -5,21 +10,3 @@
 #else
 // TODO: #include std lib, eigen, etc. for JUCE compilation
 #endif
-
-
-namespace dsp {
-
-    namespace math {
-    
-        float rms(const float* src, uint32_t len);
-        void vectorAdd(const float* a, const float* b, float* out, uint32_t len);
-        bool matMul(const float* a, uint16_t aRows, uint16_t aCols,
-                const float* b, uint16_t bRows, uint16_t bCols,
-                float* c);
-
-    }
-
-    class Effect;
-    class AudioBuffer;
-    
-}
