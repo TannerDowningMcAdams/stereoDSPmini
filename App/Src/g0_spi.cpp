@@ -1,11 +1,5 @@
- #include "audio.hpp"
 #include "g0_spi.hpp"
-#include "spi_protocol.h"
-#include "stm32h7xx_hal_spi.h"
-#include "system.hpp"
-#include "stm32h7xx_hal_def.h"
 #include <cstdint>
-#include <cstring>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,35 +11,40 @@ extern "C" {
 UNCACHED_RAM SpiControlPacket G0Spi::rxPacketDMA_;
 UNCACHED_RAM SpiControlPacket G0Spi::txPacketDMA_;
 
-extern System gSystem;
-
-void G0Spi::init()
+void G0Spi::init(const Config& config)
 {
-    HAL_StatusTypeDef spiTxRxStatus = HAL_SPI_TransmitReceive_DMA(handle_, reinterpret_cast<uint8_t*>(&txPacketDMA_), reinterpret_cast<uint8_t*>(&rxPacketDMA_), kSpiPacketWords);
-    
-    if (spiTxRxStatus != HAL_OK) 
-    {
-        status_ = CommStatus::ERROR;
-        spiErrorHandler(); 
-    }
+    config_ = config;
 
-    else { status_ = CommStatus::OK; }
+    // Armed at an arbitrary point in the G0's cadence. Landing mid-burst fails the
+    // CRC, and the resync path realigns it.
+    if (arm() == Status::OK) { status_ = Status::OK; }
+    else
+    {
+        status_ = Status::ERROR;
+        scheduleResync();
+    }
 }
 
-void G0Spi::packUnpackSpiData()
+bool G0Spi::txRxComplete()
 {
-    uint16_t messageId = rxPacketDMA_.messageId;
-
-    switch (messageId)
+    // Parse before re-arming: the next transfer lands in the same buffer.
+    bool controlUpdated = false;
+    switch (rxPacketDMA_.messageId)
     {
-        //Control packet 
-        case 0x5A9E: parseControlPacket();
-        break;
+        case kControlPacketId:
+            parseControlPacket();
+            controlUpdated = true;
+            break;
+        default:
+            break;
     }
 
     // Populate tx packet if necessary
 
-    HAL_SPI_TransmitReceive_DMA(handle_, reinterpret_cast<uint8_t*>(&txPacketDMA_), reinterpret_cast<uint8_t*>(&rxPacketDMA_), kSpiPacketWords);
+    // Re-armed at once, which lands in the idle gap after this packet. A failure
+    // raises no callback, so it goes through the same resync path as an error.
+    if (arm() != Status::OK) { scheduleResync(); }
+    return controlUpdated;
 }
 
 void G0Spi::parseControlPacket()
@@ -76,10 +75,43 @@ void G0Spi::parseControlPacket()
 
 }
 
-void G0Spi::spiErrorHandler(){
-    return;
+Status G0Spi::arm()
+{
+    return fromHAL(HAL_SPI_TransmitReceive_DMA(config_.spi,
+                                               reinterpret_cast<uint8_t*>(&txPacketDMA_),
+                                               reinterpret_cast<uint8_t*>(&rxPacketDMA_),
+                                               kSpiPacketWords));
 }
 
+// Tick before flag, so serviceErrors() never pairs the flag with an older tick.
+void G0Spi::scheduleResync()
+{
+    errorTick_     = HAL_GetTick();
+    resyncPending_ = 1u;
+}
 
+// Every HAL error path (CRC, overrun, mode fault, DMA) has already stopped the
+// transfer and left the handle READY by the time this runs.
+void G0Spi::spiErrorHandler()
+{
+    errors_     = errors_ | HAL_SPI_GetError(config_.spi);
+    errorCount_ = errorCount_ + 1u;
+    scheduleResync();
+}
 
+void G0Spi::serviceErrors()
+{
+    if (resyncPending_ == 0u) { return; }
+    // Software NSS gives the slave no framing, so re-arming mid-burst would shift
+    // every packet after it. Wait until the faulted burst is over.
+    if ((HAL_GetTick() - errorTick_) < kResyncDelayMs) { return; }
+    resyncPending_ = 0u;
 
+    (void) HAL_SPI_Abort(config_.spi);
+    if (arm() == Status::OK) { status_ = Status::OK; }
+    else
+    {
+        status_ = Status::ERROR;
+        scheduleResync();
+    }
+}

@@ -57,6 +57,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/g0_spi.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/processor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/relay.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/status.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/system.cpp
 )
 

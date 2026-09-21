@@ -1,14 +1,8 @@
 #pragma once
+#include <cstdint>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include "stm32h7xx_hal.h"
-#ifdef __cplusplus
-}
-#endif
-
-// Enum class mirrors HAL Status Typedef
+// Shared result type. Standalone on purpose: it is included everywhere, so it
+// must not drag the HAL in. The HAL mapping lives in status_hal.hpp.
 enum class Status : uint8_t
 {
     OK      = 0,
@@ -17,9 +11,3 @@ enum class Status : uint8_t
     TIMEOUT = 3,
     INIT    = 4   // Not yet initialized
 };
-
-// Inline conversion matches 
-inline Status fromHAL(HAL_StatusTypeDef halStatus)
-{
-    return static_cast<Status>(halStatus);
-}

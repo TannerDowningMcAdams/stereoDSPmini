@@ -2,8 +2,6 @@
 #include "audio_buffer.hpp"
 #include "main.h"
 #include "status.hpp"
-#include "stm32h7xx_hal_def.h"
-#include "stm32h7xx_hal_sai.h"
 #include "dsp.hpp"
 #include <cstdint>
 #include <algorithm>
@@ -16,8 +14,10 @@ UNCACHED_RAM int32_t Audio::audioDacDataDMA_[Audio::kCodecBufferSize];
 // ISR handoff. Seeded to 1 so the first half-transfer interrupt moves it to 0.
 volatile uint32_t Audio::offset_ = 1u;
 
-void Audio::init() 
+void Audio::init(const Config& config)
 {
+    config_ = config;
+
     // memset takes a byte value, so a nonzero float fill would be silently
     // wrong; std::fill keeps all six buffers consistent.
     std::fill(std::begin(audioAdcDataDMA_),   std::end(audioAdcDataDMA_),   0);
@@ -36,7 +36,7 @@ void Audio::init()
 
     resetCodec();
     // One retry through the same abort-and-rearm path the runtime uses.
-    const bool started = (startDMA() == HAL_OK) || (restart() == HAL_OK);
+    const bool started = (startDMA() == Status::OK) || (restart() == Status::OK);
     status_ = started ? Status::OK : Status::ERROR;
 }
 
@@ -67,8 +67,8 @@ void Audio::serviceBlock()
     outputBuffer_.toInterleaved(dst, kFloatToInt24, kDmaWordShift);
 }
 
-// A1 is the clock master and the only block that publishes, so these set the
-// half for both rings: at half-transfer the DAC half is sent, the ADC filled.
+// The dac block is the clock master and the only one that publishes, so these
+// set the half for both rings: at half-transfer the DAC half is sent, ADC filled.
 void Audio::txHalfComplete()
 {
     offset_ = 0u;
@@ -93,30 +93,30 @@ void Audio::signalBlock()
 void Audio::resetCodec()
 {
     // Pull NRST low, wait, then back high
-    HAL_GPIO_WritePin(CODEC_NRST_GPIO_Port, CODEC_NRST_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(config_.codecReset.port, config_.codecReset.mask, GPIO_PIN_RESET);
     HAL_Delay(50);
-    HAL_GPIO_WritePin(CODEC_NRST_GPIO_Port, CODEC_NRST_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(config_.codecReset.port, config_.codecReset.mask, GPIO_PIN_SET);
     HAL_Delay(50);
 }
 
-HAL_StatusTypeDef Audio::startDMA()
-{ 
-    // B1 is the synchronous slave and is enabled first: SCK and FS only go live
-    // on master A1's enable, so B1 must be listening to lock the first frame.
-    HAL_StatusTypeDef rxStatus = HAL_SAI_Receive_DMA(rxHandle_, reinterpret_cast<uint8_t*>(audioAdcDataDMA_), kCodecBufferSize);
-    if (rxStatus != HAL_OK) { return rxStatus; }
+Status Audio::startDMA()
+{
+    // The adc block is the synchronous slave and is enabled first: SCK and FS only
+    // go live on the master's enable, so the slave must already be listening.
+    const Status rxStatus = fromHAL(HAL_SAI_Receive_DMA(config_.adc, reinterpret_cast<uint8_t*>(audioAdcDataDMA_), kCodecBufferSize));
+    if (rxStatus != Status::OK) { return rxStatus; }
 
     // Clocks start here.
     offset_ = 1u;
-    return HAL_SAI_Transmit_DMA(txHandle_, reinterpret_cast<uint8_t*>(audioDacDataDMA_), kCodecBufferSize);
+    return fromHAL(HAL_SAI_Transmit_DMA(config_.dac, reinterpret_cast<uint8_t*>(audioDacDataDMA_), kCodecBufferSize));
 }
 
-HAL_StatusTypeDef Audio::restart()
+Status Audio::restart()
 {
     // HAL_SAI_Abort tolerates a stream the HAL already stopped, so both blocks are
     // always aborted and re-armed together, whichever one faulted.
-    (void) HAL_SAI_Abort(txHandle_);
-    (void) HAL_SAI_Abort(rxHandle_);
+    (void) HAL_SAI_Abort(config_.dac);
+    (void) HAL_SAI_Abort(config_.adc);
 
     // Both streams are stopped, so this is safe: drop any block pending from
     // before the fault, and silence the DAC rather than replay stale output.
@@ -131,7 +131,7 @@ HAL_StatusTypeDef Audio::restart()
 
 Audio::SaiId Audio::identify(const SAI_HandleTypeDef* hsai) const
 {
-    return (hsai == txHandle_) ? SaiId::DAC : SaiId::ADC;
+    return (hsai == config_.dac) ? SaiId::DAC : SaiId::ADC;
 }
 
 void Audio::audioErrorHandler(SAI_HandleTypeDef* hsai)
@@ -163,7 +163,7 @@ void Audio::serviceErrors()
     restartPending_ = 0u;
 
     // A failed restart raises no callback, so re-flag it for the next pass.
-    if (restart() == HAL_OK) { status_ = Status::OK; }
+    if (restart() == Status::OK) { status_ = Status::OK; }
     else
     {
         status_ = Status::ERROR;

@@ -1,23 +1,22 @@
 #pragma once
 
-#include "status.hpp"
-#include "stm32h7xx_hal_def.h"
-#include "stm32h7xx_hal_dma.h"
+#include "status_hal.hpp"
 #include "audio_buffer.hpp"
 #include "processor.hpp"
+#include "pin.hpp"
 #include <cstdint>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include "sai.h"
-#include "stm32h7xx_hal.h"
-#ifdef __cplusplus
-}
-#endif
 
 class Audio {
 public:
+
+    struct Config
+    {
+        // dac must be the clock master: only its callbacks publish the half, and
+        // adc must be synchronous to it.
+        SAI_HandleTypeDef* dac;
+        SAI_HandleTypeDef* adc;
+        Pin                codecReset;
+    };
 
     // Index into the per-block SAI error latches.
     enum class SaiId : uint8_t { DAC = 0, ADC = 1, COUNT = 2 };
@@ -35,12 +34,11 @@ public:
     // 24.615385 MHz / (256 * (1+OSR)) = 48076.92382813 where OSR = 1
     static constexpr uint32_t kSampleRate = 48077;
 
-    Status status_ = Status::INIT;
-
     // Bind before init(): serviceBlock() hands every block straight to it.
     void setProcessor(Processor* p) { processor_ = p; }
 
-    void init();
+    void init(const Config& config);
+    Status status() const { return status_; }
 
     // Thread mode, from the App_Run() loop: processes the newest block if one is
     // pending. The ISR only publishes; all DSP runs here.
@@ -50,12 +48,12 @@ public:
     // involved poll SysTick, which cannot preempt the priority-0 DMA IRQs.
     void serviceErrors();
 
-    // Both blocks share one clock and frame, so only master A1's callbacks
-    // publish the half; B1's are deliberately empty.
+    // Both blocks share one clock and frame, so only the master dac block's
+    // callbacks publish the half; the adc block's are deliberately empty.
     void txHalfComplete();
     void txComplete();
     // Not masked at the DMA: HAL completes a stream abort on its TC interrupt,
-    // so masking TCIE would leave an aborted B1 stream unrecoverable.
+    // so masking TCIE would leave an aborted adc stream unrecoverable.
     void rxHalfComplete() { }
     void rxComplete()     { }
     // ISR context, from SAI1_IRQn or a DMA stream IRQ. Latches and returns.
@@ -71,8 +69,8 @@ public:
     void     clearSaiErrors();
     
 private:
-    SAI_HandleTypeDef* txHandle_ = &hsai_BlockA1;
-    SAI_HandleTypeDef* rxHandle_ = &hsai_BlockB1;
+    Config config_ {};
+    Status status_ = Status::INIT;
     Processor* processor_ = nullptr;
 
     // Not volatile: the carve-out is uncached and the interrupt boundary is the
@@ -119,9 +117,9 @@ private:
     // ISR side of the handoff: count the block, and an overrun if one was missed.
     void signalBlock();
     void resetCodec();
-    HAL_StatusTypeDef startDMA();
+    Status startDMA();
     // Abort both blocks and re-arm. Thread mode only.
-    HAL_StatusTypeDef restart();
+    Status restart();
     SaiId identify(const SAI_HandleTypeDef* hsai) const;
 
 } ;
