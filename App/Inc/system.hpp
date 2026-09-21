@@ -32,6 +32,7 @@ public:
     inline void audioErrorCallback(SAI_HandleTypeDef* hsai) { audio_.audioErrorHandler(hsai); }
     void spiTxRxComplete();
     void spiErrorCallback()             { g0Spi_.spiErrorHandler(); }
+    void spiFrameEnd()                  { g0Spi_.onFrameEnd(); }
 
 private:
 

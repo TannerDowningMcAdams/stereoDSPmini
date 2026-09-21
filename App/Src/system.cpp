@@ -43,7 +43,6 @@ void System::init()
 void System::poll()
 {
     audio_.serviceErrors();
-    g0Spi_.serviceErrors();
     audio_.serviceBlock();
 }
 

@@ -13,21 +13,14 @@ UNCACHED_RAM SpiControlPacket G0Spi::txPacketDMA_;
 
 void G0Spi::init(const Config& config)
 {
+    // Not armed here: the first CS rising edge does it, on a packet boundary.
     config_ = config;
-
-    // Armed at an arbitrary point in the G0's cadence. Landing mid-burst fails the
-    // CRC, and the resync path realigns it.
-    if (arm() == Status::OK) { status_ = Status::OK; }
-    else
-    {
-        status_ = Status::ERROR;
-        scheduleResync();
-    }
 }
 
 bool G0Spi::txRxComplete()
 {
-    // Parse before re-arming: the next transfer lands in the same buffer.
+    // Parsed before onFrameEnd() re-arms into this buffer. Both run at priority 2,
+    // so that cannot preempt this.
     bool controlUpdated = false;
     switch (rxPacketDMA_.messageId)
     {
@@ -41,9 +34,7 @@ bool G0Spi::txRxComplete()
 
     // Populate tx packet if necessary
 
-    // Re-armed at once, which lands in the idle gap after this packet. A failure
-    // raises no callback, so it goes through the same resync path as an error.
-    if (arm() != Status::OK) { scheduleResync(); }
+    // Not re-armed here; onFrameEnd() does it once the G0 raises CS.
     return controlUpdated;
 }
 
@@ -83,35 +74,29 @@ Status G0Spi::arm()
                                                kSpiPacketWords));
 }
 
-// Tick before flag, so serviceErrors() never pairs the flag with an older tick.
-void G0Spi::scheduleResync()
-{
-    errorTick_     = HAL_GetTick();
-    resyncPending_ = 1u;
-}
-
 // Every HAL error path (CRC, overrun, mode fault, DMA) has already stopped the
 // transfer and left the handle READY by the time this runs.
 void G0Spi::spiErrorHandler()
 {
     errors_     = errors_ | HAL_SPI_GetError(config_.spi);
     errorCount_ = errorCount_ + 1u;
-    scheduleResync();
 }
 
-void G0Spi::serviceErrors()
+void G0Spi::onFrameEnd()
 {
-    if (resyncPending_ == 0u) { return; }
-    // Software NSS gives the slave no framing, so re-arming mid-burst would shift
-    // every packet after it. Wait until the faulted burst is over.
-    if ((HAL_GetTick() - errorTick_) < kResyncDelayMs) { return; }
-    resyncPending_ = 0u;
+    // EXTI is live from MX_GPIO_Init, before init() runs. Nothing is armed until
+    // config_ is set.
+    if (config_.spi == nullptr) { return; }
+    frameCount_ = frameCount_ + 1u;
 
-    (void) HAL_SPI_Abort(config_.spi);
-    if (arm() == Status::OK) { status_ = Status::OK; }
-    else
+    // Still busy when the G0 ends its frame means the transfer began mid-packet.
+    // Abort is quick here: its suspend-wait only runs in master mode.
+    if (HAL_SPI_GetState(config_.spi) != HAL_SPI_STATE_READY)
     {
-        status_ = Status::ERROR;
-        scheduleResync();
+        resyncCount_ = resyncCount_ + 1u;
+        (void) HAL_SPI_Abort(config_.spi);
     }
+
+    // A failed arm needs no retry logic: the next frame end tries again.
+    status_ = arm();
 }
