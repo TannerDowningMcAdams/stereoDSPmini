@@ -14,14 +14,14 @@ extern "C" {
 }
 #endif
 
-UNCACHED_RAM volatile SpiControlPacket G0Spi::rxPacketDMA_;
-UNCACHED_RAM volatile SpiControlPacket G0Spi::txPacketDMA_;
+UNCACHED_RAM SpiControlPacket G0Spi::rxPacketDMA_;
+UNCACHED_RAM SpiControlPacket G0Spi::txPacketDMA_;
 
 extern System gSystem;
 
 void G0Spi::init()
 {
-    HAL_StatusTypeDef spiTxRxStatus = HAL_SPI_TransmitReceive_DMA(handle_, (uint8_t *)&txPacketDMA_, (uint8_t *)&rxPacketDMA_, kSpiPacketWords);
+    HAL_StatusTypeDef spiTxRxStatus = HAL_SPI_TransmitReceive_DMA(handle_, reinterpret_cast<uint8_t*>(&txPacketDMA_), reinterpret_cast<uint8_t*>(&rxPacketDMA_), kSpiPacketWords);
     
     if (spiTxRxStatus != HAL_OK) 
     {
@@ -45,7 +45,7 @@ void G0Spi::packUnpackSpiData()
 
     // Populate tx packet if necessary
 
-    HAL_SPI_TransmitReceive_DMA(handle_, (uint8_t *)&txPacketDMA_, (uint8_t *)&rxPacketDMA_, kSpiPacketWords);
+    HAL_SPI_TransmitReceive_DMA(handle_, reinterpret_cast<uint8_t*>(&txPacketDMA_), reinterpret_cast<uint8_t*>(&rxPacketDMA_), kSpiPacketWords);
 }
 
 void G0Spi::parseControlPacket()

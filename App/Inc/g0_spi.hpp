@@ -36,9 +36,10 @@ private:
 
     static constexpr float int12ToFloat = 1.0f / 4095.0f;
 
-    // DMA buffers for SPI transmission and reception
-    static volatile SpiControlPacket rxPacketDMA_;
-    static volatile SpiControlPacket txPacketDMA_;
+    // DMA buffers for SPI transmission and reception. Not volatile: the carve-out
+    // is uncached, and volatile only invites a cast that strips it (UB).
+    static SpiControlPacket rxPacketDMA_;
+    static SpiControlPacket txPacketDMA_;
 
     void packUnpackSpiData();
     void parseControlPacket();
