@@ -20,7 +20,6 @@ Release/
 *.tmp
 *~
 *.swp
-.mxproject
 
 # VSCode - commit tasks, launch, and c_cpp_properties but not local settings
 .vscode/settings.json
@@ -39,3 +38,6 @@ Thumbs.db
 
 # STM32CubeIDE workspace metadata
 ../.metadata/
+
+# Internal documentation
+docs/
