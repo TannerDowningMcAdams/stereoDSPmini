@@ -136,7 +136,7 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-  appTick();
+
   /* USER CODE END SysTick_IRQn 1 */
 }
 
@@ -196,17 +196,7 @@ void ADC1_IRQHandler(void)
 void TIM1_CC_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM1_CC_IRQn 0 */
-  // Check if interrupt came from OC1 or OC2
-  if(TIM1->SR & TIM_SR_CC1IF)
-  {
-    // 6ms after ADC conversion
-    packSpiData();
-  }
-  else if(TIM1->SR & TIM_SR_CC2IF)
-  {
-    // 2ms after packing SPI data
-    initiateSpiDma();
-  }
+
   /* USER CODE END TIM1_CC_IRQn 0 */
   HAL_TIM_IRQHandler(&htim1);
   /* USER CODE BEGIN TIM1_CC_IRQn 1 */

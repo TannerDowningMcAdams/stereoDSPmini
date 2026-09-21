@@ -1,10 +1,8 @@
-#include <stdbool.h>
+#pragma once
 
-void appTick(void);
+void appInit(void);
+void appPoll(void);
 void onAdcReady(void);
-bool adcDataReady(void);
-void packSpiData(void);
-void initiateSpiDma(void);
 
 typedef enum {
 
@@ -19,4 +17,3 @@ typedef enum {
     ENGAGED
 
 } BypassState;
-
