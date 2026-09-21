@@ -12,7 +12,7 @@ void Processor::init(uint32_t sampleRate)
     // Initialize DSP, buffers, etc
 }
 
-void Processor::processAudioBlock(dsp::AudioBuffer input, dsp::AudioBuffer output)
+void Processor::processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer output)
 {
     if (controlsReady_)
     {
@@ -31,7 +31,7 @@ void Processor::processAudioBlock(dsp::AudioBuffer input, dsp::AudioBuffer outpu
 }
 
 // Per-Sample processing for non-block processing
-void Processor::processLeftRight(dsp::AudioBuffer input, dsp::AudioBuffer output)
+void Processor::processLeftRight(dsp::ConstAudioBuffer input, dsp::AudioBuffer output)
 {
 
     for(uint16_t i = 0; i < input.size(); i++)

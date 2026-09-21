@@ -25,8 +25,8 @@ public:
 
     void init(uint32_t sampleRate);
 
-    void processAudioBlock(dsp::AudioBuffer input, dsp::AudioBuffer output);
-    void processLeftRight(dsp::AudioBuffer input, dsp::AudioBuffer output);
+    void processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer output);
+    void processLeftRight(dsp::ConstAudioBuffer input, dsp::AudioBuffer output);
     // Called from the SPI ISR. Refused while the previous set is unconsumed, so the
     // payload has one owner at a time; the caller simply tries again next tick.
     bool pushControls(const ProcessorControls &controls);
