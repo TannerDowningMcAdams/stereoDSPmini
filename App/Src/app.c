@@ -12,11 +12,8 @@
 // TODO: move into Protocol with the v2 packet. Must match the H7's kControlPacketId.
 #define CONTROL_PACKET_ID 0x5A9E
 
-// TIM1 frame, 10 ms period:
-//   0 ms    update -> TRGO2 starts the ADC scan (~6.9 ms with 256x oversampling)
-//   ~6.9 ms ADC complete -> snapshot and pack spiTxPacket
-//   8 ms    CH1 compare  -> CS low, start the SPI frame (~70 us at 4 MHz)
-// The TX packet is only written while the SPI is idle, which this ordering guarantees.
+// TIM1 10 ms frame: ADC scan at 0 ms (done ~6.9 ms, then pack), SPI frame at 8 ms (~70 us).
+// This ordering keeps packing clear of the SPI DMA.
 
 static volatile uint16_t potAdcBufferDMA[NUM_POTENTIOMETERS];
 static uint16_t potValues[NUM_POTENTIOMETERS];
