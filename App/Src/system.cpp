@@ -6,10 +6,12 @@
 
 void System::init()
 {
-    g0Spi_.init();
-    analogDryThru_.init();
+    // Defaults are pushed before SPI starts: pushControls() assumes one producer,
+    // and after this the SPI ISR is the only one.
     processor_.init(audio_.kSampleRate);
     processor_.pushControls(translateControls(defaultParams_));
+    g0Spi_.init();
+    analogDryThru_.init();
     // Processor is ready before the first block can be published.
     audio_.setProcessor(&processor_);
     audio_.init();
@@ -34,8 +36,8 @@ void System::spiTxRxComplete()
     g0Spi_.params_.relayR ? relay_.rightOn() : relay_.rightOff();
     // Extract control data relevant to Processor from g0Spi_.params_
     ProcessorControls newControls = translateControls(g0Spi_.params_);
-    // Update pending parameters for audio processing
-    processor_.pushControls(newControls);
+    // A refused set is dropped, not retried: the next tick 10 ms later is fresher.
+    (void) processor_.pushControls(newControls);
 }
 
 ProcessorControls System::translateControls(const uiParams &params)

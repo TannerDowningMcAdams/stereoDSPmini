@@ -27,7 +27,9 @@ public:
 
     void processAudioBlock(dsp::AudioBuffer input, dsp::AudioBuffer output);
     void processLeftRight(dsp::AudioBuffer input, dsp::AudioBuffer output);
-    void pushControls(const ProcessorControls &controls);
+    // Called from the SPI ISR. Refused while the previous set is unconsumed, so the
+    // payload has one owner at a time; the caller simply tries again next tick.
+    bool pushControls(const ProcessorControls &controls);
     
 private:
 
@@ -35,6 +37,8 @@ private:
     float samplePeriod_;
 
     void updateAlgorithmParams();
+    // pendingControls_ belongs to pushControls() while the flag is clear, and to
+    // processAudioBlock() while it is set.
     ProcessorControls activeControls_;
     ProcessorControls pendingControls_;
     volatile bool controlsReady_ = false;
