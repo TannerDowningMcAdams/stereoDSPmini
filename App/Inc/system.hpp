@@ -22,7 +22,6 @@ public:
     ~System() = default;
 
     void init();
-    void onAudioReady();
     // Thread-mode work, called from the App_Run() loop.
     void poll();
 

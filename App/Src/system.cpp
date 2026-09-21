@@ -7,24 +7,20 @@
 void System::init()
 {
     g0Spi_.init();
-    audio_.init();
-    analogDryThru_.init();  
+    analogDryThru_.init();
     processor_.init(audio_.kSampleRate);
     processor_.pushControls(translateControls(defaultParams_));
+    // Processor is ready before the first block can be published.
+    audio_.setProcessor(&processor_);
+    audio_.init();
     relay_.rightOn();
     relay_.leftOn();
-}
-
-// Signal from Audio that new data is formatted and ready to process
-void System::onAudioReady()
-{
-    // Pass audio I/O buffers to Processor; audio_.outputBuffer_ is written in place
-    processor_.processAudioBlock(audio_.getInputBuffer(), audio_.getOutputBuffer());
 }
 
 void System::poll()
 {
     audio_.serviceErrors();
+    audio_.serviceBlock();
 }
 
 // SPI DMA callback occurs every 10ms; see callbacks.hpp for origin

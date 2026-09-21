@@ -4,13 +4,10 @@
 #include "status.hpp"
 #include "stm32h7xx_hal_def.h"
 #include "stm32h7xx_hal_sai.h"
-#include "system.hpp"
 #include "dsp.hpp"
 #include <cstdint>
 #include <algorithm>
 #include <iterator>
-
-extern System gSystem;
 
 // DMA buffers are placed in an uncached SRAM carve-out to prevent cache coherency issues
 UNCACHED_RAM int32_t Audio::audioAdcDataDMA_[Audio::kCodecBufferSize];
@@ -33,6 +30,9 @@ void Audio::init()
     clearSaiErrors();
     errorCount_     = 0u;
     restartPending_ = 0u;
+    blockCount_     = 0u;
+    consumedCount_  = 0u;
+    blockOverruns_  = 0u;
 
     resetCodec();
     // One retry through the same abort-and-rearm path the runtime uses.
@@ -40,21 +40,29 @@ void Audio::init()
     status_ = started ? Status::OK : Status::ERROR;
 }
 
-void Audio::serviceBlock() 
+void Audio::serviceBlock()
 {
-    // One volatile read per block, so both rings are addressed consistently if
-    // the master's interrupt lands mid-function.
-    const uint32_t half = offset_;
+    // Snapshot count and half as a pair: an interrupt between two separate reads
+    // would pair a stale count with a new half, and process that half twice.
+    uint32_t count;
+    uint32_t half;
+    do
+    {
+        count = blockCount_;
+        half  = offset_;
+    } while (count != blockCount_);
 
-    // DMA owns the opposite half for the duration of this call, so these two
-    // never alias and the region is stable.
+    if (count == consumedCount_) { return; }
+    consumedCount_ = count;
+
+    // DMA owns the opposite half until the next interrupt, so these two never
+    // alias. Running past that interrupt is what signalBlock() counts.
     const int32_t* __restrict src = audioAdcDataDMA_ + (half * kHalfWords);
     int32_t*       __restrict dst = audioDacDataDMA_ + (half * kHalfWords);
 
     inputBuffer_.fromInterleaved(src, kInt24ToFloat, kDmaWordShift);
 
-    // Call to System to pass audio data to Processor
-    gSystem.onAudioReady();
+    if (processor_ != nullptr) { processor_->processAudioBlock(inputBuffer_, outputBuffer_); }
 
     outputBuffer_.toInterleaved(dst, kFloatToInt24, kDmaWordShift);
 }
@@ -64,13 +72,22 @@ void Audio::serviceBlock()
 void Audio::txHalfComplete()
 {
     offset_ = 0u;
-    serviceBlock();
+    signalBlock();
 }
 
 void Audio::txComplete()
 {
     offset_ = 1u;
-    serviceBlock();
+    signalBlock();
+}
+
+// offset_ is written before blockCount_, so a reader that sees the new count
+// also sees the new half.
+void Audio::signalBlock()
+{
+    const uint32_t n = blockCount_ + 1u;
+    if ((n - consumedCount_) > 1u) { blockOverruns_ = blockOverruns_ + 1u; }
+    blockCount_ = n;
 }
 
 void Audio::resetCodec()
@@ -100,6 +117,11 @@ HAL_StatusTypeDef Audio::restart()
     // always aborted and re-armed together, whichever one faulted.
     (void) HAL_SAI_Abort(txHandle_);
     (void) HAL_SAI_Abort(rxHandle_);
+
+    // Both streams are stopped, so this is safe: drop any block pending from
+    // before the fault, and silence the DAC rather than replay stale output.
+    consumedCount_ = blockCount_;
+    std::fill(std::begin(audioDacDataDMA_), std::end(audioDacDataDMA_), 0);
     return startDMA();
 }
 

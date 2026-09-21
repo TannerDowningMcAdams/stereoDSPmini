@@ -16,7 +16,8 @@ extern "C" void App_Run(void)
     // Initialize peripheral objects and interrupts
     gSystem.init();
 
-    // Audio and SPI are interrupt-driven
+    // All DSP runs here, below every interrupt. No WFI: a block published between
+    // poll() and WFI would sleep until SysTick (1 ms), past the block deadline.
     for(;;)
     {
         gSystem.poll();

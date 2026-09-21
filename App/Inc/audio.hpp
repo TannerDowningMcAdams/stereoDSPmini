@@ -4,6 +4,7 @@
 #include "stm32h7xx_hal_def.h"
 #include "stm32h7xx_hal_dma.h"
 #include "audio_buffer.hpp"
+#include "processor.hpp"
 #include <cstdint>
 
 #ifdef __cplusplus
@@ -36,7 +37,14 @@ public:
 
     Status status_ = Status::INIT;
 
+    // Bind before init(): serviceBlock() hands every block straight to it.
+    void setProcessor(Processor* p) { processor_ = p; }
+
     void init();
+
+    // Thread mode, from the App_Run() loop: processes the newest block if one is
+    // pending. The ISR only publishes; all DSP runs here.
+    void serviceBlock();
 
     // Thread mode only: restarts the SAI if an error stopped it. The HAL calls
     // involved poll SysTick, which cannot preempt the priority-0 DMA IRQs.
@@ -53,18 +61,19 @@ public:
     // ISR context, from SAI1_IRQn or a DMA stream IRQ. Latches and returns.
     void audioErrorHandler(SAI_HandleTypeDef* hsai);
 
-    uint32_t errorCount() const { return errorCount_; }
+    uint32_t errorCount()    const { return errorCount_; }
+    // Blocks published by the master; blocks lost because serviceBlock() fell behind.
+    uint32_t blockCount()    const { return blockCount_; }
+    uint32_t blockOverruns() const { return blockOverruns_; }
     // Accumulated HAL_SAI_ERROR_* bits, and callback count, since the last clear.
     uint32_t saiError(SaiId id)      const { return saiErrors_[static_cast<uint8_t>(id)]; }
     uint32_t saiErrorCount(SaiId id) const { return saiErrorCounts_[static_cast<uint8_t>(id)]; }
     void     clearSaiErrors();
-
-    dsp::AudioBuffer getInputBuffer()  { return inputBuffer_; }
-    dsp::AudioBuffer getOutputBuffer() { return outputBuffer_; }
     
 private:
     SAI_HandleTypeDef* txHandle_ = &hsai_BlockA1;
     SAI_HandleTypeDef* rxHandle_ = &hsai_BlockB1;
+    Processor* processor_ = nullptr;
 
     // Not volatile: the carve-out is uncached and the interrupt boundary is the
     // synchronisation. Declaring it volatile only invited a const_cast, which is UB.
@@ -74,6 +83,12 @@ private:
     // The DMA half the DSP owns: 0 after half-transfer, 1 after complete. Seeded
     // to 1 so the first half-transfer interrupt moves it to 0.
     static volatile uint32_t offset_;
+
+    // blockCount_ and blockOverruns_ are written by the ISR, consumedCount_ by
+    // serviceBlock(). Their difference is how far the DSP is behind.
+    volatile uint32_t blockCount_    = 0;
+    volatile uint32_t consumedCount_ = 0;
+    volatile uint32_t blockOverruns_ = 0;
 
     // Cached copy buffers for packing and unpacking
     // Half the size of the DMA buffers (not double buffered)
@@ -101,7 +116,8 @@ private:
     // Only OVR/UDR leave the transfer running; every other error stops a stream.
     static constexpr uint32_t kNonFatalErrors = HAL_SAI_ERROR_OVR | HAL_SAI_ERROR_UDR;
 
-    void serviceBlock();
+    // ISR side of the handoff: count the block, and an overrun if one was missed.
+    void signalBlock();
     void resetCodec();
     HAL_StatusTypeDef startDMA();
     // Abort both blocks and re-arm. Thread mode only.
