@@ -23,12 +23,14 @@ public:
 
     void init();
     void onAudioReady();
+    // Thread-mode work, called from the App_Run() loop.
+    void poll();
 
     inline void audioRxHalfComplete()   { audio_.rxHalfComplete(); }
     inline void audioRxComplete()       { audio_.rxComplete(); }
     inline void audioTxHalfComplete()   { audio_.txHalfComplete(); }
     inline void audioTxComplete()       { audio_.txComplete(); }
-    inline void audioErrorCallback()    { audio_.audioErrorHandler(); }
+    inline void audioErrorCallback(SAI_HandleTypeDef* hsai) { audio_.audioErrorHandler(hsai); }
     void spiTxRxComplete();
     void spiErrorCallback()             { g0Spi_.spiErrorHandler(); }
 

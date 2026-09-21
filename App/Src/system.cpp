@@ -22,6 +22,11 @@ void System::onAudioReady()
     processor_.processAudioBlock(audio_.getInputBuffer(), audio_.getOutputBuffer());
 }
 
+void System::poll()
+{
+    audio_.serviceErrors();
+}
+
 // SPI DMA callback occurs every 10ms; see callbacks.hpp for origin
 void System::spiTxRxComplete()
 { 

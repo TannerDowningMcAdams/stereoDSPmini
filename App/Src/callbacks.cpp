@@ -37,7 +37,7 @@ extern "C" {
     }
     void HAL_SAI_ErrorCallback(SAI_HandleTypeDef *hsai)
     {
-        gSystem.audioErrorCallback();
+        gSystem.audioErrorCallback(hsai);
     }
 
     void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)

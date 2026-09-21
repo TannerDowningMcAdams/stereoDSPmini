@@ -30,13 +30,14 @@ void Audio::init()
     std::fill(std::begin(leftOutputBuffer_),  std::end(leftOutputBuffer_),  0.0f);
     std::fill(std::begin(rightOutputBuffer_), std::end(rightOutputBuffer_), 0.0f);
 
-    offset_ = 1u;
+    clearSaiErrors();
+    errorCount_     = 0u;
+    restartPending_ = 0u;
 
-    // Initialization and check
     resetCodec();
-    HAL_StatusTypeDef dmaStatus = startDMA();
-    if (dmaStatus != HAL_OK) { initErrorHandler(); }
-    else { status_ = Status::OK; }
+    // One retry through the same abort-and-rearm path the runtime uses.
+    const bool started = (startDMA() == HAL_OK) || (restart() == HAL_OK);
+    status_ = started ? Status::OK : Status::ERROR;
 }
 
 void Audio::serviceBlock() 
@@ -58,8 +59,8 @@ void Audio::serviceBlock()
     outputBuffer_.toInterleaved(dst, kFloatToInt24, kDmaWordShift);
 }
 
-// A1 is the clock master and the only block still interrupting, so these publish
-// the half for both rings: at half-transfer the DAC half is sent, the ADC filled.
+// A1 is the clock master and the only block that publishes, so these set the
+// half for both rings: at half-transfer the DAC half is sent, the ADC filled.
 void Audio::txHalfComplete()
 {
     offset_ = 0u;
@@ -81,123 +82,78 @@ void Audio::resetCodec()
     HAL_Delay(50);
 }
 
-void Audio::maskBlockInterrupts(DMA_HandleTypeDef* hdma)
-{
-    if (hdma == nullptr) { return; }
-
-    // Legal with the stream running, and leaves TEIE and DMEIE armed so
-    // SAI_DMAError() still reaches audioErrorHandler().
-    __HAL_DMA_DISABLE_IT(hdma, DMA_IT_HT | DMA_IT_TC);
-}
-
 HAL_StatusTypeDef Audio::startDMA()
 { 
     // B1 is the synchronous slave and is enabled first: SCK and FS only go live
     // on master A1's enable, so B1 must be listening to lock the first frame.
-    HAL_StatusTypeDef rxStatus = HAL_SAI_Receive_DMA(rxHandle_, (uint8_t *) audioAdcDataDMA_, kCodecBufferSize);
+    HAL_StatusTypeDef rxStatus = HAL_SAI_Receive_DMA(rxHandle_, reinterpret_cast<uint8_t*>(audioAdcDataDMA_), kCodecBufferSize);
     if (rxStatus != HAL_OK) { return rxStatus; }
-
-    // The slave crosses the same midpoint on the same frame as the master, so
-    // its block interrupts add only a race. Masked after HAL enables them.
-    maskBlockInterrupts(rxHandle_->hdmarx);
 
     // Clocks start here.
     offset_ = 1u;
-    return HAL_SAI_Transmit_DMA(txHandle_, (uint8_t *) audioDacDataDMA_, kCodecBufferSize);
-}
-void Audio::audioErrorHandler()
-{
-    uint32_t txError = HAL_SAI_GetError(txHandle_);
-    uint32_t rxError = HAL_SAI_GetError(rxHandle_);
-    errorCount_++;
-    status_ = Status::ERROR;
-
-    // Bitwise OR error codes to address tx/rx errors together
-    uint32_t combinedError = txError | rxError;
-
-    recoverFromError(combinedError);
-
-    HAL_StatusTypeDef retryResult = startDMA();
-
-    if (retryResult == HAL_OK) { status_ = Status::OK; }
-    else { status_ = Status::ERROR; }
+    return HAL_SAI_Transmit_DMA(txHandle_, reinterpret_cast<uint8_t*>(audioDacDataDMA_), kCodecBufferSize);
 }
 
-void Audio::initErrorHandler()
+HAL_StatusTypeDef Audio::restart()
 {
-    uint32_t txError = HAL_SAI_GetError(txHandle_);
-    uint32_t rxError = HAL_SAI_GetError(rxHandle_);
-    errorCount_++;
-    status_ = Status::ERROR;
+    // HAL_SAI_Abort tolerates a stream the HAL already stopped, so both blocks are
+    // always aborted and re-armed together, whichever one faulted.
+    (void) HAL_SAI_Abort(txHandle_);
+    (void) HAL_SAI_Abort(rxHandle_);
+    return startDMA();
+}
 
-    // Bitwise OR error codes to address tx/rx errors together
-    uint32_t combinedError = txError | rxError;   
+// ============================================================================
+// Error handling
+// ============================================================================
 
-    // HAL_BUSY or HAL_TIMEOUT
-    if (combinedError == HAL_SAI_ERROR_NONE)
-    {
-        HAL_SAI_Abort(txHandle_);
-        HAL_SAI_Abort(rxHandle_);
-    }
+Audio::SaiId Audio::identify(const SAI_HandleTypeDef* hsai) const
+{
+    return (hsai == txHandle_) ? SaiId::DAC : SaiId::ADC;
+}
+
+void Audio::audioErrorHandler(SAI_HandleTypeDef* hsai)
+{
+    const uint8_t  idx  = static_cast<uint8_t>(identify(hsai));
+    const uint32_t bits = HAL_SAI_GetError(hsai);
+
+    // Reached at priority 0 (DMA) and 1 (SAI1), so the read-modify-writes must
+    // not interleave. Explicit RMW: compound assignment on volatile is deprecated.
+    const uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    saiErrors_[idx]      = saiErrors_[idx] | bits;
+    saiErrorCounts_[idx] = saiErrorCounts_[idx] + 1u;
+    errorCount_          = errorCount_ + 1u;
+    __set_PRIMASK(primask);
+
+    // HAL only ever ORs into this; clearing it makes the next callback report
+    // what is new. State is left alone, since the DMA may still be running.
+    hsai->ErrorCode = HAL_SAI_ERROR_NONE;
+
+    // No restart here: the HAL calls it needs poll SysTick, which cannot preempt
+    // a priority-0 DMA IRQ. serviceErrors() does it from thread mode.
+    if ((bits & ~kNonFatalErrors) != 0u) { restartPending_ = 1u; }
+}
+
+void Audio::serviceErrors()
+{
+    if (restartPending_ == 0u) { return; }
+    restartPending_ = 0u;
+
+    // A failed restart raises no callback, so re-flag it for the next pass.
+    if (restart() == HAL_OK) { status_ = Status::OK; }
     else
     {
-        recoverFromError(combinedError);
+        status_ = Status::ERROR;
+        restartPending_ = 1u;
     }
-
-    // Single retry after recovery
-    HAL_StatusTypeDef retryResult = startDMA();
-
-    if (retryResult == HAL_OK)
-    {
-        status_ = Status::OK;
-        errorCount_--;  // successful recovery
-    }
-    else { status_ = Status::ERROR; }
 }
 
-void Audio::recoverFromError(uint32_t saiError)
+void Audio::clearSaiErrors()
 {
-    if (saiError & HAL_SAI_ERROR_DMA)
+    for (uint8_t i = 0u; i < static_cast<uint8_t>(SaiId::COUNT); ++i)
     {
-        // DMA stream fault - full peripheral and DMA reinit
-        HAL_SAI_MspDeInit(txHandle_);
-        HAL_SAI_MspDeInit(rxHandle_);
-        //HAL_DMA_Init();
-        //HAL_DMA_Start();
-        MX_SAI1_Init();
-    }
-    else if (saiError & HAL_SAI_ERROR_WCKCFG)
-    {
-        // Clock not present - brief delay then reinit peripheral
-        HAL_Delay(10);
-        HAL_SAI_MspDeInit(txHandle_);
-        HAL_SAI_MspDeInit(rxHandle_);
-        HAL_SAI_Init(txHandle_);
-        HAL_SAI_Init(rxHandle_);
-    }
-    else if (saiError & (HAL_SAI_ERROR_AFSDET | HAL_SAI_ERROR_LFSDET))
-    {
-        // Frame sync lost - abort both and re-arm
-        HAL_SAI_Abort(txHandle_);
-        HAL_SAI_Abort(rxHandle_);
-    }
-    else if (saiError & (HAL_SAI_ERROR_OVR | HAL_SAI_ERROR_UDR))
-    {
-        // FIFO error - abort both and re-arm
-        HAL_SAI_Abort(txHandle_);
-        HAL_SAI_Abort(rxHandle_);
-    }
-    else if (saiError & HAL_SAI_ERROR_TIMEOUT) 
-    {
-        // Timeout - full peripheral reinit
-        HAL_SAI_MspDeInit(txHandle_);
-        HAL_SAI_MspDeInit(rxHandle_);
-        MX_SAI1_Init();
-    }
-    else
-    {
-        // HAL_BUSY or unknown - abort and re-arm
-        HAL_SAI_Abort(txHandle_);
-        HAL_SAI_Abort(rxHandle_);
+        saiErrors_[i]      = 0u;
+        saiErrorCounts_[i] = 0u;
     }
 }

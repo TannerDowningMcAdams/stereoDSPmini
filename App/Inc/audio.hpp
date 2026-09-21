@@ -18,6 +18,9 @@ extern "C" {
 class Audio {
 public:
 
+    // Index into the per-block SAI error latches.
+    enum class SaiId : uint8_t { DAC = 0, ADC = 1, COUNT = 2 };
+
     Audio() = default;
     ~Audio() = default;
 
@@ -35,15 +38,26 @@ public:
 
     void init();
 
-    // Both blocks share one clock and frame, so four sets of block interrupts
-    // raced. Only master A1 keeps its own; startDMA() masks B1's.
+    // Thread mode only: restarts the SAI if an error stopped it. The HAL calls
+    // involved poll SysTick, which cannot preempt the priority-0 DMA IRQs.
+    void serviceErrors();
+
+    // Both blocks share one clock and frame, so only master A1's callbacks
+    // publish the half; B1's are deliberately empty.
     void txHalfComplete();
     void txComplete();
-    // Masked in startDMA(), so unreachable. Present only because callbacks.cpp
-    // overrides the HAL weak symbols.
+    // Not masked at the DMA: HAL completes a stream abort on its TC interrupt,
+    // so masking TCIE would leave an aborted B1 stream unrecoverable.
     void rxHalfComplete() { }
     void rxComplete()     { }
-    void audioErrorHandler();
+    // ISR context, from SAI1_IRQn or a DMA stream IRQ. Latches and returns.
+    void audioErrorHandler(SAI_HandleTypeDef* hsai);
+
+    uint32_t errorCount() const { return errorCount_; }
+    // Accumulated HAL_SAI_ERROR_* bits, and callback count, since the last clear.
+    uint32_t saiError(SaiId id)      const { return saiErrors_[static_cast<uint8_t>(id)]; }
+    uint32_t saiErrorCount(SaiId id) const { return saiErrorCounts_[static_cast<uint8_t>(id)]; }
+    void     clearSaiErrors();
 
     dsp::AudioBuffer getInputBuffer()  { return inputBuffer_; }
     dsp::AudioBuffer getOutputBuffer() { return outputBuffer_; }
@@ -76,16 +90,22 @@ private:
     // 24-bit codec data sits left-aligned in each 32-bit DMA word.
     static constexpr uint16_t kDmaWordShift = 8;
 
-    uint32_t errorState_ = 0;
-    uint32_t errorCount_ = 0;
+    // HAL never clears hsai->ErrorCode while a transfer runs, so latch per block
+    // and clear it on every callback: the count becomes a rate, the bits a union.
+    volatile uint32_t saiErrors_      [static_cast<uint8_t>(SaiId::COUNT)] = {};
+    volatile uint32_t saiErrorCounts_ [static_cast<uint8_t>(SaiId::COUNT)] = {};
+    volatile uint32_t errorCount_     = 0;
+    // Set by the ISR when an error stopped a transfer; consumed by serviceErrors().
+    volatile uint32_t restartPending_ = 0;
+
+    // Only OVR/UDR leave the transfer running; every other error stops a stream.
+    static constexpr uint32_t kNonFatalErrors = HAL_SAI_ERROR_OVR | HAL_SAI_ERROR_UDR;
 
     void serviceBlock();
-    void initErrorHandler();
-    void recoverFromError(uint32_t saiErrorCode);
     void resetCodec();
     HAL_StatusTypeDef startDMA();
-    // Drop a channel's half/complete interrupts, leaving its error
-    // interrupts armed.
-    static void maskBlockInterrupts(DMA_HandleTypeDef* hdma);
+    // Abort both blocks and re-arm. Thread mode only.
+    HAL_StatusTypeDef restart();
+    SaiId identify(const SAI_HandleTypeDef* hsai) const;
 
 } ;
