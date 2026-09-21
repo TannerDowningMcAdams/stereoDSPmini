@@ -1,17 +1,19 @@
+#pragma once
+
 #include "main.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 typedef enum {
 
-    FS_TYPE_BYPASS
-    FS_TYPE_TAP
+    FS_TYPE_BYPASS,
+    FS_TYPE_TAP,
     FS_TYPE_PARAMETER
 
 } FootswitchType;
 
 typedef enum {
-    
+
     FS_IDLE,
     FS_DEBOUNCE,
     FS_PRESSED,
@@ -22,7 +24,7 @@ typedef enum {
 
 typedef struct {
 
-    F
+    FootswitchType type;
     FootswitchState state;
     uint16_t gpioPin;
     GPIO_TypeDef * gpioPort;
@@ -33,5 +35,5 @@ typedef struct {
 } Footswitch;
 
 void FootswitchInit(FootswitchState state, uint16_t pin, GPIO_TypeDef* port);
-void updateFootswitchTap(Footswitch* switch);
-void updateFootswitchBypass(Footswitch* switch);
+void updateFootswitchTap(Footswitch* fs);
+void updateFootswitchBypass(Footswitch* fs);

@@ -42,14 +42,10 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined library search paths
 )
 
-# Collect source files
-file(GLOB_RECURSE APP_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/App/Src/*.c"
-)
-
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    ${APP_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/app.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/led.c
 )
 
 # Add include paths
