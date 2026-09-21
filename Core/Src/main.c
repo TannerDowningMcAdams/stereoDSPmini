@@ -24,7 +24,6 @@
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
-#include "wwdg.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -97,12 +96,10 @@ int main(void)
   MX_ADC1_Init();
   MX_SPI1_Init();
   MX_USART1_UART_Init();
-  MX_USART2_UART_Init();
   MX_TIM16_Init();
   MX_TIM17_Init();
   MX_TIM1_Init();
   MX_IWDG_Init();
-  MX_WWDG_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
