@@ -39,6 +39,11 @@ set(CMSISCORE ${CMAKE_CURRENT_SOURCE_DIR}/Drivers/CMSIS)
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
 
+# Linker script: the shared toolchain files carry no -T.
+set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/STM32H743XX_FLASH.ld)
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE -T${LINKER_SCRIPT})
+set_property(TARGET ${CMAKE_PROJECT_NAME} APPEND PROPERTY LINK_DEPENDS ${LINKER_SCRIPT})
+
 # Add CMSIS DSP library sources
 add_subdirectory(DSP/CMSIS_DSP)
 

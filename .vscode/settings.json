@@ -1,3 +1,17 @@
 {
-    "cmake.sourceDirectory": "C:/dev/stereoDSPmini/H7"
+    // The build pins STM32CubeCLT itself (cmake/clt.cmake), so whatever the ST extension writes here is harmless.
+    "cmake.sourceDirectory": "${workspaceFolder}",
+    "cmake.useCMakePresets": "always",
+
+    // Editor-side only: clangd and integrated terminals use the same CLT GCC as the build.
+    "stm32cube-ide-clangd.path": "cube",
+    "stm32cube-ide-clangd.arguments": [
+        "starm-clangd",
+        "--query-driver=${env:STM32CLT_PATH}/GNU-tools-for-STM32/bin/arm-none-eabi-gcc*",
+        "--query-driver=${env:STM32CLT_PATH}/GNU-tools-for-STM32/bin/arm-none-eabi-g++*",
+        "--header-insertion=never"
+    ],
+    "terminal.integrated.env.windows": {
+        "PATH": "${env:STM32CLT_PATH}\\GNU-tools-for-STM32\\bin;${env:STM32CLT_PATH}\\CMake\\bin;${env:STM32CLT_PATH}\\Ninja\\bin;${env:PATH}"
+    }
 }

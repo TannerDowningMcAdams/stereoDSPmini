@@ -1,2 +1,5 @@
 # Internal documentation
 docs/
+
+# Superbuild output; sub-project build dirs are ignored by their own .gitignore
+build/
