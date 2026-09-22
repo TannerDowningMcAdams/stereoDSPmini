@@ -45,6 +45,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/app.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/bootloader.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/led.c
 )
 
@@ -58,6 +59,10 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
 )
+
+# SystemInit() sets VTOR to flash; the bootloader's Go command jumps in without a reset.
+# system_stm32g0xx.c builds in STM32_Drivers, which does not inherit the executable's defines.
+target_compile_definitions(STM32_Drivers PRIVATE USER_VECT_TAB_ADDRESS)
 
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)

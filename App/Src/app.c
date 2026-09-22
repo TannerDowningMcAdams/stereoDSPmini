@@ -1,7 +1,9 @@
 #include "app.h"
 #include "adc.h"
+#include "bootloader.h"
 #include "iwdg.h"
 #include "main.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include "spi.h"
 #include "spi_protocol.h"
@@ -26,8 +28,16 @@ static void packSpiData(void);
 static void startSpiFrame(void);
 static void endSpiFrame(void);
 
+static bool footswitchRHeld(void)
+{
+    return HAL_GPIO_ReadPin(FTSW_R_GPIO_Port, FTSW_R_Pin) == GPIO_PIN_RESET;
+}
+
 void appInit(void)
 {
+    // Bench trigger: FTSW_R held through boot enters the system bootloader.
+    if (footswitchRHeld()) { HAL_Delay(20); if (footswitchRHeld()) { bootloaderRequest(); } }
+
     HAL_ADCEx_Calibration_Start(&hadc1);
     HAL_ADC_Start_DMA(&hadc1, (uint32_t *) potAdcBufferDMA, NUM_POTENTIOMETERS);
     HAL_TIM_PWM_Start(&htim17, TIM_CHANNEL_1);
