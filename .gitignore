@@ -3,3 +3,6 @@ docs/
 
 # Superbuild output; sub-project build dirs are ignored by their own .gitignore
 build/
+
+# CubeMX recreates these when missing; the root cmake/ toolchain files are the ones in use
+**/cmake/gcc-arm-none-eabi.cmake

@@ -38,7 +38,7 @@ add_executable(${CMAKE_PROJECT_NAME})
 add_subdirectory(cmake/stm32cubemx)
 
 # Linker script: the shared toolchain files carry no -T.
-set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/STM32G030XX_FLASH.ld)
+set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/STM32G030xx_FLASH.ld)
 target_link_options(${CMAKE_PROJECT_NAME} PRIVATE -T${LINKER_SCRIPT})
 set_property(TARGET ${CMAKE_PROJECT_NAME} APPEND PROPERTY LINK_DEPENDS ${LINKER_SCRIPT})
 

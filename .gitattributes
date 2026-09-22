@@ -1,0 +1,5 @@
+# CubeMX copies vendor trees with LF but git would check them out as CRLF, so each regeneration looked modified.
+# Store them byte-for-byte: checkout then matches what CubeMX writes.
+**/Drivers/** -text
+**/Middlewares/** -text
+**/cmake/stm32cubemx/CMakeLists.txt -text
