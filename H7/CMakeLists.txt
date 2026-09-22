@@ -78,6 +78,35 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
 )
 
+# Embedded G0 image, passed in by the superbuild. Converted at build time, so a clean build waits for the G0.
+if(G0_IMAGE)
+    set(G0_IMAGE_COPY ${CMAKE_CURRENT_BINARY_DIR}/g0_image.bin)
+    set(G0_IMAGE_OBJ  ${CMAKE_CURRENT_BINARY_DIR}/g0_image.o)
+    # objcopy names the symbols after the input path, hence the local copy and relative name.
+    add_custom_command(
+        OUTPUT  ${G0_IMAGE_OBJ}
+        COMMAND ${CMAKE_COMMAND} -E copy ${G0_IMAGE} ${G0_IMAGE_COPY}
+        COMMAND ${CMAKE_OBJCOPY} -I binary -O elf32-littlearm -B arm
+                --rename-section .data=.rodata.g0_image,alloc,load,readonly,data,contents
+                --set-section-alignment .rodata.g0_image=4
+                --redefine-sym _binary_g0_image_bin_start=g0_image_start
+                --redefine-sym _binary_g0_image_bin_end=g0_image_end
+                --strip-symbol _binary_g0_image_bin_size
+                g0_image.bin g0_image.o
+        DEPENDS ${G0_IMAGE}
+        BYPRODUCTS ${G0_IMAGE_COPY}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "H7: embedding G0 image ${G0_IMAGE}"
+    )
+    set_source_files_properties(${G0_IMAGE_OBJ} PROPERTIES EXTERNAL_OBJECT true GENERATED true)
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${G0_IMAGE_OBJ})
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE STEREODSPMINI_G0_IMAGE=1)
+    # Nothing references the image yet; keep --gc-sections from discarding it.
+    target_link_options(${CMAKE_PROJECT_NAME} PRIVATE -Wl,--undefined=g0_image_start)
+else()
+    message(STATUS "G0 image not embedded: configure from the repository root to include it")
+endif()
+
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 

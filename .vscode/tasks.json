@@ -1,0 +1,94 @@
+{
+    // STM32_Programmer_CLI by CLT path, not bare name, so PATH order cannot pick the extension's bundled copy.
+    // One ST-LINK at a time: "-c port=SWD" takes the first probe found.
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "cmake",
+            "label": "CMake: build",
+            "command": "build",
+            "targets": [ "all" ],
+            "preset": "Debug",
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": [],
+            "detail": "G0 and H7 via the superbuild"
+        },
+        {
+            "type": "cmake",
+            "label": "CMake: build bridge",
+            "command": "build",
+            "targets": [ "stereoDSPmini_bridge" ],
+            "preset": "Debug",
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "tools/bridge, excluded from the default build"
+        },
+        {
+            "label": "Flash: H7 (SWD)",
+            "type": "process",
+            "command": "${env:STM32CLT_PATH}/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe",
+            "args": [
+                "-c", "port=SWD",
+                "-d", "${workspaceFolder}/H7/build/Debug/stereoDSPminiH7_cubeMX.elf", "-v",
+                "-rst"
+            ],
+            "problemMatcher": [],
+            "presentation": { "reveal": "always", "panel": "dedicated" }
+        },
+        {
+            "label": "Flash: G0 (SWD)",
+            "type": "process",
+            "command": "${env:STM32CLT_PATH}/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe",
+            "args": [
+                "-c", "port=SWD",
+                "-d", "${workspaceFolder}/G0/build/Debug/stereoDSPminiG0_cubeMX.elf", "-v",
+                "-rst"
+            ],
+            "problemMatcher": [],
+            "presentation": { "reveal": "always", "panel": "dedicated" }
+        },
+        {
+            // Recovery path for a G0 left half-programmed: connect under reset via NRST on the tag-connect.
+            "label": "Flash: G0 recovery (SWD, under reset)",
+            "type": "process",
+            "command": "${env:STM32CLT_PATH}/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe",
+            "args": [
+                "-c", "port=SWD", "mode=UR",
+                "-d", "${workspaceFolder}/G0/build/Debug/stereoDSPminiG0_cubeMX.elf", "-v",
+                "-rst"
+            ],
+            "problemMatcher": [],
+            "presentation": { "reveal": "always", "panel": "dedicated" }
+        },
+        {
+            "label": "Flash: bridge to H7 (SWD)",
+            "type": "process",
+            "command": "${env:STM32CLT_PATH}/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe",
+            "args": [
+                "-c", "port=SWD",
+                "-d", "${workspaceFolder}/tools/bridge/build/Debug/stereoDSPminiBridge_cubeMX.elf", "-v",
+                "-rst"
+            ],
+            "problemMatcher": [],
+            "presentation": { "reveal": "always", "panel": "dedicated" }
+        },
+        {
+            "label": "Build + Flash H7",
+            "dependsOrder": "sequence",
+            "dependsOn": [ "CMake: build", "Flash: H7 (SWD)" ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Build + Flash G0",
+            "dependsOrder": "sequence",
+            "dependsOn": [ "CMake: build", "Flash: G0 (SWD)" ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Build + Flash bridge",
+            "dependsOrder": "sequence",
+            "dependsOn": [ "CMake: build bridge", "Flash: bridge to H7 (SWD)" ],
+            "problemMatcher": []
+        }
+    ]
+}

@@ -78,3 +78,11 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
     # Add user defined libraries
 )
+
+# Raw image for the H7 to embed and program over the system bootloader.
+set(G0_IMAGE_BIN ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin)
+add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${CMAKE_PROJECT_NAME}> ${G0_IMAGE_BIN}
+    BYPRODUCTS ${G0_IMAGE_BIN}
+    COMMENT "G0: ${CMAKE_PROJECT_NAME}.bin"
+)
