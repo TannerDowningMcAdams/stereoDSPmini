@@ -64,7 +64,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/Protocol
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Protocol
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Inc
 )
 
