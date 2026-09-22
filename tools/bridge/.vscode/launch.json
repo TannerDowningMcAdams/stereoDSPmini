@@ -1,0 +1,51 @@
+{
+"version": "0.2.0",
+"configurations": [
+    {
+        "type": "stlinkgdbtarget",
+        "request": "launch",
+        "name": "STM32Cube: STM32 Launch ST-Link GDB Server",
+        "origin": "snippet",
+        "cwd": "${workspaceFolder}",
+        "preBuild": "${command:st-stm32-ide-debug-launch.build}",
+        "runEntry": "main",
+        "imagesAndSymbols": [
+            {
+                "imageFileName": "${command:st-stm32-ide-debug-launch.get-projects-binary-from-context1}"
+            }
+        ]
+    },
+    {
+        "name": "MY BUG",
+        "type": "stlinkgdbtarget",
+        "request": "launch",
+        "cwd": "${workspaceFolder}",
+        "preBuild": "${command:st-stm32-ide-debug-launch.build}",
+        "runEntry": "main",
+        "imagesAndSymbols": [
+            {
+                "imageFileName": "${workspaceFolder}/build/Debug/stereoDSPminiH7.elf"
+            }
+        ],
+        "verbose": false
+    },
+    {
+        // No preLaunchTask on purpose: attaching must not reflash or reset.
+        "name": "STM32H743 / Attach while running",
+        "cwd": "${workspaceFolder}",
+        "executable": "${workspaceFolder}/build/Debug/stereoDSPminiH7_cubeMX.elf",
+        "device": "STM32H743VITx",
+        "request": "attach",
+        "type": "cortex-debug",
+        "servertype": "stlink",
+        "liveWatch": {
+            "enabled": true,
+            "samplesPerSecond": 4
+        },
+        "svdPath": "${env:STM32CLT_PATH}/STMicroelectronics_CMSIS_SVD/STM32H743.svd",
+        "armToolchainPath": "${env:STM32CLT_PATH}/GNU-tools-for-STM32/bin",
+        "serverpath": "${env:STM32CLT_PATH}/STLink-gdb-server/bin/ST-LINK_gdbserver.exe",
+        "postAttachCommands": []
+    }
+]
+}
