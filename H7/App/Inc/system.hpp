@@ -1,7 +1,6 @@
 #pragma once
 #include "audio.hpp"
 #include "audio_buffer.hpp"
-#include "ui_params.hpp"
 #include "relay.hpp"
 #include "g0_spi.hpp"
 #include "g0_bootloader.hpp"
@@ -42,20 +41,15 @@ private:
     G0Bootloader g0Bootloader_;
     // Covers a G0 that enters its bootloader at power-up: its app boot, debounce and reset.
     static constexpr uint32_t kG0ProbeWindowMs = 250u;
+    // Covers the G0 app's boot to its first frame.
+    static constexpr uint32_t kG0LinkWindowMs  = 100u;
+    // Frames carrying the bootloader magic; the G0 acts on the first it receives.
+    static constexpr uint32_t kG0RequestMs     = 20u;
     Relay relay_;
     AnalogDryThru analogDryThru_;
     Processor processor_;
-    static constexpr uiParams defaultParams_ = {
-        {0.5, 0.5, 0.5, 0.5, 0.5},
-        true,
-        true,
-        true,
-        0,
-        0,
-        2.0f,
-        0
-    };
 
-    ProcessorControls translateControls(const uiParams &params);
-    
+    void updateG0();
+    static ProcessorControls toProcessorControls(const G0Spi::Controls& controls);
+
 } ;

@@ -2,7 +2,6 @@
 
 void appInit(void);
 void appPoll(void);
-void onAdcReady(void);
 
 typedef enum {
 

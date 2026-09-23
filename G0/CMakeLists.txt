@@ -47,15 +47,23 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined library search paths
 )
 
+# Board file: one per pedal UI (App/boards/board_<name>.c).
+set(BOARD mini CACHE STRING "UI board file under App/boards")
+
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/app.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/bootloader.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/core/app.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/core/bootloader.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/core/spi_link.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/core/timebase.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/boards/board_${BOARD}.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/led.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/boards
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Inc
     ${CMAKE_CURRENT_SOURCE_DIR}/../Protocol
 )

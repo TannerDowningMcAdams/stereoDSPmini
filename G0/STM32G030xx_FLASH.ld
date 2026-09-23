@@ -56,8 +56,14 @@ ENTRY(Reset_Handler)
 MEMORY
 {
 RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 8K
-FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 64K
+FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 56K
+STORAGE (r)     : ORIGIN = 0x800E000, LENGTH = 8K
 }
+
+/* Preset and settings log (plan section 4.2): four 2 KB pages, outside the image the
+   H7 programs, so they survive a reflash. */
+__storage_start__ = ORIGIN(STORAGE);
+__storage_end__   = ORIGIN(STORAGE) + LENGTH(STORAGE);
 
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM);    /* end of RAM */

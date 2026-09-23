@@ -1,4 +1,5 @@
 #include "g0_spi.hpp"
+#include "protocol_version.h"
 #include <cstdint>
 #ifdef __cplusplus
 extern "C" {
@@ -8,62 +9,99 @@ extern "C" {
 }
 #endif
 
-UNCACHED_RAM SpiControlPacket G0Spi::rxPacketDMA_;
-UNCACHED_RAM SpiControlPacket G0Spi::txPacketDMA_;
+UNCACHED_RAM G0ToH7Packet G0Spi::rxPacketDMA_;
+UNCACHED_RAM H7ToG0Packet G0Spi::txPacketDMA_;
 
 void G0Spi::init(const Config& config)
 {
+    // The cycle counter timestamps each CS edge. The H7's DWT is locked until LAR is written.
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->LAR = 0xC5ACCE55u;
+    DWT->CYCCNT = 0u;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
+    controls_ = defaultControls();
+
     // Not armed here: the first CS rising edge does it, on a packet boundary.
     config_ = config;
+}
+
+// The manifest defaults of the only engine the H7 has.
+G0Spi::Controls G0Spi::defaultControls()
+{
+    const EngineManifest& engine = kEngineManifest[ENGINE_PASSTHROUGH];
+    Controls controls {};
+    controls.engine = ENGINE_PASSTHROUGH;
+    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls.param[i] = engine.paramDefault[i]; }
+    controls.discrete = engineDiscreteDefault(&engine);
+    return controls;
+}
+
+void G0Spi::restartFrame()
+{
+    EXTI->SWIER1 = config_.csPin;
 }
 
 bool G0Spi::txRxComplete()
 {
     // Parsed before onFrameEnd() re-arms into this buffer. Both run at priority 2,
     // so that cannot preempt this.
-    bool controlUpdated = false;
-    switch (rxPacketDMA_.messageId)
-    {
-        case kControlPacketId:
-            parseControlPacket();
-            controlUpdated = true;
-            break;
-        default:
-            break;
-    }
+    if (rxPacketDMA_.messageId != SPI_MSG_ID_G0_TO_H7) { return false; }
 
-    // Populate tx packet if necessary
+    // Recorded whatever the version: a G0 on another protocol is one to reprogram.
+    g0ProtocolVersion_ = rxPacketDMA_.version;
+    g0FwVersion_       = rxPacketDMA_.g0FwVersion;
+    g0Seen_            = true;
+    if (rxPacketDMA_.version != PROTOCOL_VERSION) { return false; }
 
-    // Not re-armed here; onFrameEnd() does it once the G0 raises CS.
-    return controlUpdated;
+    parse();
+    frameValid_      = true;
+    lastValidMs_     = HAL_GetTick();
+    validFrameCount_ = validFrameCount_ + 1u;
+    return true;
 }
 
-void G0Spi::parseControlPacket()
+void G0Spi::parse()
 {
-    uint16_t flags = rxPacketDMA_.flags;
+    frameSeq_              = rxPacketDMA_.frameSeq;
+    controls_.engine       = rxPacketDMA_.engine;
+    controls_.presetIndex  = rxPacketDMA_.presetIndex;
+    controls_.runFlags     = rxPacketDMA_.runFlags;
+    controls_.eventToggles = rxPacketDMA_.eventToggles;
+    controls_.tempoHz      = rxPacketDMA_.tempoHz;
+    controls_.tempoPhase   = rxPacketDMA_.tempoPhase;
+    controls_.ownerMask    = rxPacketDMA_.ownerMask;
 
-    // Mode switch is a 2-bit unsigned integer (3 values used)
-    params_.modeSwitch = flags & MODE_SWITCH_MASK;
+    // A new preset's values must not drive the engine it replaces (plan §4.1).
+    if (rxPacketDMA_.engine != activeEngine_) { return; }
+    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls_.param[i] = rxPacketDMA_.param[i]; }
+    controls_.discrete = rxPacketDMA_.discrete;
+}
 
-    // Boolean values for relay states
-    params_.relayR = (flags & FLAG_RELAY_RIGHT) != 0;
-    params_.relayL = (flags & FLAG_RELAY_LEFT) != 0;
+bool G0Spi::linkUp() const
+{
+    return validFrameCount_ != 0u && (HAL_GetTick() - lastValidMs_) < kLinkTimeoutMs;
+}
 
-    params_.killWet = (flags & FLAG_KILL_WET) != 0;
-
-    // 12-bit mask for VCA value
-    params_.vcaValue = rxPacketDMA_.vcaValue & (0x0FFF);
-
-    // 5 potentiometer values converted from 12-bit unsigned int to float
-    params_.potentiometers[0] = (rxPacketDMA_.pot[0] & (0x0FFF)) * G0Spi::int12ToFloat;
-    params_.potentiometers[1] = (rxPacketDMA_.pot[1] & (0x0FFF)) * G0Spi::int12ToFloat;
-    params_.potentiometers[2] = (rxPacketDMA_.pot[2] & (0x0FFF)) * G0Spi::int12ToFloat;
-    params_.potentiometers[3] = (rxPacketDMA_.pot[3] & (0x0FFF)) * G0Spi::int12ToFloat;
-    params_.potentiometers[4] = (rxPacketDMA_.pot[4] & (0x0FFF)) * G0Spi::int12ToFloat;
-
-    params_.beatsPerSecond = rxPacketDMA_.beatsPerSecond;
-    params_.clockPhase = rxPacketDMA_.clockPhase;
-
+void G0Spi::buildTx()
+{
+    H7ToG0Packet& tx = txPacketDMA_;
+    tx.messageId       = SPI_MSG_ID_H7_TO_G0;
+    tx.version         = PROTOCOL_VERSION;
+    tx.bootloaderMagic = bootloaderRequest_ ? SPI_BOOTLOADER_MAGIC : 0u;
+    tx.h7FwVersion     = H7_FW_VERSION;
+    tx.frameSeqEcho    = frameSeq_;
+    tx.h7Flags         = static_cast<uint16_t>(H7_FLAG_ENGINE_READY |
+                                               (validFrameCount_ != 0u ? H7_FLAG_STATE_VALID : 0u));
+    tx.activeEngine    = activeEngine_;
+    tx.presetIndex     = controls_.presetIndex;
+    tx.runFlags        = controls_.runFlags;
+    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { tx.param[i] = controls_.param[i]; }
+    tx.discrete        = controls_.discrete;
+    tx.tempoHz         = controls_.tempoHz;
+    tx.ownerMask       = controls_.ownerMask;
+    // The packet is in uncached RAM; the stores must land before the DMA is enabled.
+    __DMB();
 }
 
 Status G0Spi::arm()
@@ -84,10 +122,17 @@ void G0Spi::spiErrorHandler()
 
 void G0Spi::onFrameEnd()
 {
+    const uint32_t edge = DWT->CYCCNT;
+
     // EXTI is live from MX_GPIO_Init, before init() runs. Nothing is armed until
     // config_ is set.
     if (config_.spi == nullptr) { return; }
     frameCount_ = frameCount_ + 1u;
+    if (frameValid_)
+    {
+        frameEdgeCycles_ = edge;
+        frameValid_      = false;
+    }
 
     // Still busy when the G0 ends its frame means the transfer began mid-packet.
     // Abort is quick here: its suspend-wait only runs in master mode.
@@ -97,6 +142,8 @@ void G0Spi::onFrameEnd()
         (void) HAL_SPI_Abort(config_.spi);
     }
 
+    // Built after the abort, so no transfer is reading the buffer.
+    buildTx();
     // A failed arm needs no retry logic: the next frame end tries again.
     status_ = arm();
 }

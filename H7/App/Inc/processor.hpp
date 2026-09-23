@@ -1,17 +1,16 @@
 #pragma once
 
 #include "audio_buffer.hpp"
-#include "ui_params.hpp"
 using dsp::AudioBuffer;
 
 #include <cstdint>
 
 struct ProcessorControls{
 
-    float potentiometers[5];
-    uint8_t effectMode;
-    float beatsPerSecond;
-    uint16_t clockPhase;
+    float params[8];        // 0..1, meaning set by the engine manifest
+    uint16_t discrete;      // field layout per engine_manifest.h
+    float tempoHz;
+    uint16_t tempoPhase;
 
 };
 

@@ -48,7 +48,7 @@ void Processor::processLeftRight(dsp::ConstAudioBuffer input, dsp::AudioBuffer o
 void Processor::updateAlgorithmParams()
 {
     // map and assign algorithm parameters
-    // e.g. filter_cutoff = 20000.0f * activeControls_.potentiometers[0];
+    // e.g. filter_cutoff = 20000.0f * activeControls_.params[0];
 }
 
 bool Processor::pushControls(const ProcessorControls &controls)
