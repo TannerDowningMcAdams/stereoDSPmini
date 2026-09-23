@@ -23,6 +23,9 @@ void bootloaderCheckAndJump(void)
     // Static, not local: at -O0 a local is read back from the stack after the MSP moves.
     static void (*systemBootloader)(void);
 
+    // Power-on with blank flash sets PROGEMPTY; left set, every later reset would boot the bootloader.
+    FLASH->ACR &= ~FLASH_ACR_PROGEMPTY;
+
     backupAccessEnable();
     uint32_t request = TAMP->BKP0R;
     TAMP->BKP0R = 0;   // Cleared first, so any later reset boots the app

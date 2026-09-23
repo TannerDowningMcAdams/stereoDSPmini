@@ -8,8 +8,12 @@ extern "C" {
 #include "spi.h"
 #include "dac.h"
 #include "opamp.h"
+#include "usart.h"
 #ifdef __cplusplus
 }
+#endif
+#if STEREODSPMINI_G0_IMAGE
+#include "g0_image.hpp"
 #endif
 
 void System::init()
@@ -24,6 +28,15 @@ void System::init()
     const G0Spi::Config         spiConfig   { &hspi2 };
     const Audio::Config         audioConfig { &hsai_BlockA1, &hsai_BlockB1,
                                               { CODEC_NRST_GPIO_Port, CODEC_NRST_Pin } };
+
+#if STEREODSPMINI_G0_IMAGE
+    // Until protocol v2 can command it: a G0 already in its bootloader (FTSW_R held at
+    // power-up, or blank flash) is programmed with the embedded image before audio starts.
+    if (g0Bootloader_.init({ &huart3 }) == Status::OK && g0Bootloader_.probe(kG0ProbeWindowMs))
+    {
+        (void) g0Bootloader_.program(g0_image_start, g0ImageSize());
+    }
+#endif
 
     // Defaults are pushed before SPI starts: pushControls() assumes one producer,
     // and after this the SPI ISR is the only one.

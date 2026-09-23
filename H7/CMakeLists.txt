@@ -59,6 +59,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/app_main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/audio.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/callbacks.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/g0_bootloader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/g0_spi.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/processor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/relay.cpp
@@ -101,8 +102,6 @@ if(G0_IMAGE)
     set_source_files_properties(${G0_IMAGE_OBJ} PROPERTIES EXTERNAL_OBJECT true GENERATED true)
     target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${G0_IMAGE_OBJ})
     target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE STEREODSPMINI_G0_IMAGE=1)
-    # Nothing references the image yet; keep --gc-sections from discarding it.
-    target_link_options(${CMAKE_PROJECT_NAME} PRIVATE -Wl,--undefined=g0_image_start)
 else()
     message(STATUS "G0 image not embedded: configure from the repository root to include it")
 endif()

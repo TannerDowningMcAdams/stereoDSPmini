@@ -4,6 +4,7 @@
 #include "ui_params.hpp"
 #include "relay.hpp"
 #include "g0_spi.hpp"
+#include "g0_bootloader.hpp"
 #include "analog_dry.hpp"
 #include "processor.hpp"
 #include <cstdint>
@@ -38,6 +39,9 @@ private:
 
     Audio audio_;
     G0Spi g0Spi_;
+    G0Bootloader g0Bootloader_;
+    // Covers a G0 that enters its bootloader at power-up: its app boot, debounce and reset.
+    static constexpr uint32_t kG0ProbeWindowMs = 250u;
     Relay relay_;
     AnalogDryThru analogDryThru_;
     Processor processor_;
