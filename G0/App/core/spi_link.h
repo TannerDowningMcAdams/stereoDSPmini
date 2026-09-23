@@ -18,6 +18,10 @@ void spiLinkPoll(void);
 G0ToH7Packet* spiLinkBeginTx(void);
 void          spiLinkCommitTx(void);
 
+// Thread mode. When the CS rising edge of the frame being built will occur, in
+// timebase microseconds. That edge is the reference instant for tempoPhase (plan §2).
+uint32_t spiLinkNextEdgeUs(void);
+
 // Thread mode. The H7's last valid frame, or NULL if none arrived within the link
 // timeout.
 const H7ToG0Packet* spiLinkEcho(void);

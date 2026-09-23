@@ -11,6 +11,12 @@
 // Well above a flash page erase, as on the H7.
 #define LINK_TIMEOUT_MS 100u
 
+// TIM1 period between frame starts, in timebase microseconds (both timers count at
+// 1 MHz from the same clock). The transfer time is measured; this seeds it with
+// 25 words at 4 Mbit/s.
+#define FRAME_PERIOD_US     1000u
+#define FRAME_TRANSFER_US   100u
+
 // The packets are packed (alignment 1); the SPI DMA moves halfwords.
 static G0ToH7Packet txBuffers[2] __attribute__((aligned(4)));
 static H7ToG0Packet rxBuffers[2] __attribute__((aligned(4)));
@@ -28,6 +34,9 @@ static H7ToG0Packet* rxReady  = &rxBuffers[1];
 static volatile bool rxReadyFull = false;
 
 static volatile uint32_t frameCount = 0;
+// Written by the CC1 and SPI ISRs, read by the thread to place the next CS edge.
+static volatile uint32_t frameStartUs = 0;
+static volatile uint32_t transferUs = FRAME_TRANSFER_US;
 static uint16_t frameSeq = 0;
 
 // Thread only.
@@ -39,6 +48,8 @@ static void endFrame(void);
 
 void spiLinkStartFrame(void)
 {
+    frameStartUs = timebaseNowUs();
+
     // A frame still in flight means the previous one hung; leave it for the watchdog.
     if (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) { return; }
 
@@ -64,7 +75,13 @@ void spiLinkStartFrame(void)
 static void endFrame(void)
 {
     HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
+    transferUs = timebaseNowUs() - frameStartUs;
     frameCount = frameCount + 1u;
+}
+
+uint32_t spiLinkNextEdgeUs(void)
+{
+    return frameStartUs + FRAME_PERIOD_US + transferUs;
 }
 
 G0ToH7Packet* spiLinkBeginTx(void)
