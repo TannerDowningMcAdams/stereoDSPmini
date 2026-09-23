@@ -37,14 +37,34 @@ void System::init()
     analogDryThru_.init(dryConfig);
     g0Spi_.init(spiConfig);
 #if STEREODSPMINI_G0_IMAGE
-    updateG0();
+    g0State_ = updateG0();
+#else
+    g0State_ = waitForG0(kG0LinkWindowMs, 0u) ? G0State::UpToDate : G0State::Absent;
 #endif
     // Processor is ready before the first block can be published.
     audio_.setProcessor(&processor_);
     audio_.init(audioConfig);
-    // Relays on and VCA at its init value until the bypass controller (M2) owns them.
-    relay_.rightOn();
-    relay_.leftOn();
+    // Relay pins have been LOW (true bypass) since MX_GPIO_Init. Without a confirmed G0 there
+    // is no UI, so they stay there; otherwise on until the bypass controller (M2) owns them.
+    if (g0State_ == G0State::UpToDate || g0State_ == G0State::Programmed)
+    {
+        relay_.rightOn();
+        relay_.leftOn();
+    }
+}
+
+// True once a valid frame newer than framesBefore reports the expected G0 image version.
+bool System::waitForG0(uint32_t windowMs, uint32_t framesBefore)
+{
+    const uint32_t start = HAL_GetTick();
+    do
+    {
+        if (g0Spi_.validFrameCount() > framesBefore && g0Spi_.g0FwVersion() == G0_FW_VERSION)
+        {
+            return true;
+        }
+    } while ((HAL_GetTick() - start) < windowMs);
+    return false;
 }
 
 void System::poll()
@@ -57,18 +77,19 @@ void System::poll()
 // Programs the G0 with the embedded image when its app reports another version, or when
 // it is already in its bootloader (AUX held at power-up, or blank flash). Runs before
 // audio starts, since programming blocks for seconds.
-void System::updateG0()
+System::G0State System::updateG0()
 {
-    if (g0Bootloader_.init({ &huart3 }) != Status::OK) { return; }
+    if (g0Bootloader_.init({ &huart3 }) != Status::OK) { return G0State::Failed; }
 
     const uint32_t start = HAL_GetTick();
     while (!g0Spi_.g0Seen() && (HAL_GetTick() - start) < kG0LinkWindowMs) {}
 
-    if (g0Spi_.g0Seen())
+    const bool appRunning = g0Spi_.g0Seen();
+    if (appRunning)
     {
         if (g0Spi_.g0ProtocolVersion() == PROTOCOL_VERSION && g0Spi_.g0FwVersion() == G0_FW_VERSION)
         {
-            return;
+            return G0State::UpToDate;
         }
         g0Spi_.setBootloaderRequest(true);
         HAL_Delay(kG0RequestMs);
@@ -78,10 +99,19 @@ void System::updateG0()
         g0Spi_.restartFrame();
     }
 
-    if (g0Bootloader_.probe(kG0ProbeWindowMs))
+    // No app and no bootloader: nothing on the FFC, or MIDI claimed the bootloader first.
+    if (!g0Bootloader_.probe(kG0ProbeWindowMs)) { return appRunning ? G0State::Failed : G0State::Absent; }
+
+    const uint32_t framesBefore = g0Spi_.validFrameCount();
+    Status status = g0Bootloader_.program(g0_image_start, g0ImageSize());
+    if (status != Status::OK && g0Bootloader_.resync())
     {
-        (void) g0Bootloader_.program(g0_image_start, g0ImageSize());
+        status = g0Bootloader_.program(g0_image_start, g0ImageSize());
     }
+    if (status != Status::OK) { return G0State::Failed; }
+
+    // Go only proves the bootloader jumped; the new app must also start and report in.
+    return waitForG0(kG0ConfirmWindowMs, framesBefore) ? G0State::Programmed : G0State::Failed;
 }
 #endif
 

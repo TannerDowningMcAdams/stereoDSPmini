@@ -16,7 +16,7 @@ public:
     // The step that last ran; on failure, the one that failed.
     enum class Phase : uint8_t
     {
-        Idle, Probe, Get, GetId, Erase, Write, Verify, Go, Done
+        Idle, Image, Probe, Get, GetId, Erase, Write, Verify, Go, Done
     };
 
     struct Result
@@ -26,12 +26,15 @@ public:
         uint32_t address         = 0;   // Flash address of the failing write or read
         uint16_t chipId          = 0;
         uint8_t  protocolVersion = 0;
-        uint32_t bytesWritten    = 0;
+        uint8_t  attempts        = 0;   // program() calls since init()
+        uint32_t bytesWritten    = 0;   // In the latest attempt
     };
 
     static constexpr uint32_t kFlashBase    = 0x08000000u;
     static constexpr uint32_t kFlashSize    = 64u * 1024u;
     static constexpr uint32_t kPageSize     = 2048u;
+    static constexpr uint32_t kRamBase      = 0x20000000u;
+    static constexpr uint32_t kRamSize      = 8u * 1024u;
     static constexpr uint16_t kExpectedChip = 0x0466;   // STM32G03x/G04x, AN2606
 
     Status init(const Config& config);
@@ -42,6 +45,9 @@ public:
     // Get ID, erase, write, verify, Go. The first word is written last, so an interrupted
     // session leaves it blank and the G0's empty check boots the bootloader on next power-up.
     Status program(const uint8_t* image, size_t size);
+
+    // After a failed program(): returns a bootloader left mid-command to a command boundary.
+    bool resync();
 
     const Result& result() const { return result_; }
 
@@ -61,12 +67,16 @@ private:
     static constexpr uint32_t kByteTimeoutMs  = 100u;
     static constexpr uint32_t kWriteTimeoutMs = 500u;
     static constexpr uint32_t kEraseTimeoutMs = 5000u;
+    static constexpr uint32_t kQuietMs        = 100u;   // Silence that ends a drain
+    static constexpr uint32_t kResyncProbeMs  = 100u;
 
     Config config_ {};
     Result result_ {};
 
+    static bool imageValid(const uint8_t* image, size_t size);
     Status fail(Phase phase, Status status);
     void   flushRx();
+    void   drainUntilQuiet();
     Status send(const uint8_t* data, uint16_t length);
     Status receive(uint8_t* data, uint16_t length, uint32_t timeoutMs);
     Status waitAck(uint32_t timeoutMs);

@@ -45,11 +45,19 @@ private:
     static constexpr uint32_t kG0LinkWindowMs  = 100u;
     // Frames carrying the bootloader magic; the G0 acts on the first it receives.
     static constexpr uint32_t kG0RequestMs     = 20u;
+    // Covers the new G0 app's boot after Go to its first valid frame.
+    static constexpr uint32_t kG0ConfirmWindowMs = 500u;
+
+    // Boot-time G0 check. The relays leave true bypass only on UpToDate or Programmed.
+    enum class G0State : uint8_t { Pending, UpToDate, Programmed, Absent, Failed };
+    G0State g0State_ = G0State::Pending;
+
     Relay relay_;
     AnalogDryThru analogDryThru_;
     Processor processor_;
 
-    void updateG0();
+    G0State updateG0();
+    bool waitForG0(uint32_t windowMs, uint32_t framesBefore);
     static ProcessorControls toProcessorControls(const G0Spi::Controls& controls);
 
 } ;

@@ -37,7 +37,9 @@ bool G0Bootloader::probe(uint32_t windowMs)
 
 Status G0Bootloader::program(const uint8_t* image, size_t size)
 {
-    if (image == nullptr || size == 0 || size > kFlashSize) { return fail(Phase::Idle, Status::ERROR); }
+    result_.attempts     = static_cast<uint8_t>(result_.attempts + 1u);
+    result_.bytesWritten = 0;
+    if (!imageValid(image, size)) { return fail(Phase::Image, Status::ERROR); }
 
     Status status = get();
     if (status != Status::OK) { return fail(Phase::Get, status); }
@@ -66,7 +68,12 @@ Status G0Bootloader::program(const uint8_t* image, size_t size)
     {
         const uint32_t length = (size - offset < kChunk) ? static_cast<uint32_t>(size - offset) : kChunk;
         status = verifyChunk(kFlashBase + offset, image + offset, length);
-        if (status != Status::OK) { return fail(Phase::Verify, status); }
+        if (status != Status::OK)
+        {
+            // Blank the first word again, so a bad image cannot boot and the empty check catches it.
+            (void) erasePages(0, 1);
+            return fail(Phase::Verify, status);
+        }
     }
 
     status = go(kFlashBase);
@@ -75,6 +82,45 @@ Status G0Bootloader::program(const uint8_t* image, size_t size)
     result_.phase  = Phase::Done;
     result_.status = Status::OK;
     return Status::OK;
+}
+
+// A bootloader still collecting a frame consumes filler until it completes, then replies.
+// probe() then leaves it at a command boundary: one or two 0x7F end in a NACK.
+bool G0Bootloader::resync()
+{
+    drainUntilQuiet();
+    for (uint32_t i = 0; i < kChunk + 8u; i++)
+    {
+        uint8_t reply = 0;
+        if (send(&kSync, 1) != Status::OK) { return false; }
+        if (receive(&reply, 1, 2u) == Status::OK) { break; }
+    }
+    drainUntilQuiet();
+    return probe(kResyncProbeMs);
+}
+
+// First two words of a Cortex-M image: initial SP in G0 RAM, Thumb reset vector in the image.
+bool G0Bootloader::imageValid(const uint8_t* image, size_t size)
+{
+    if (image == nullptr || size < 8u || size > kFlashSize) { return false; }
+    uint32_t sp = 0;
+    uint32_t reset = 0;
+    std::memcpy(&sp, image, sizeof(sp));
+    std::memcpy(&reset, image + 4, sizeof(reset));
+    const bool spInRam = sp > kRamBase && sp <= kRamBase + kRamSize;
+    const bool resetInImage = (reset & 1u) != 0u && (reset & ~1u) >= kFlashBase + 8u
+                           && (reset & ~1u) < kFlashBase + size;
+    return spInRam && resetInImage;
+}
+
+void G0Bootloader::drainUntilQuiet()
+{
+    uint8_t discard = 0;
+    for (uint32_t i = 0; i < 1024u; i++)
+    {
+        if (receive(&discard, 1, kQuietMs) != Status::OK) { break; }
+    }
+    flushRx();
 }
 
 Status G0Bootloader::fail(Phase phase, Status status)
