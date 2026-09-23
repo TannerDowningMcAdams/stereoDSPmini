@@ -1,13 +1,15 @@
 #include "processor.hpp"
 #include "audio_buffer.hpp"
+#include "engine_manifest.h"
 #include <cstdint>
 #include <cstring>
 #include "cmsis_compiler.h"
 
-void Processor::init(uint32_t sampleRate)
+void Processor::init(const Config& config)
 {
-    sampleRate_ = sampleRate;
-    samplePeriod_ = 1.0f / sampleRate;
+    sampleRate_ = config.sampleRate;
+    samplePeriod_ = 1.0f / config.sampleRate;
+    bypass_ = config.bypass;
 
     // Initialize DSP, buffers, etc
 }
@@ -23,11 +25,10 @@ void Processor::processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer 
         controlsReady_ = false;
     }
 
-
-    // Block Processing here
-
-    processLeftRight(input, output);
-    
+    // Block Processing here, on the input the bypass controller hands over.
+    const dsp::ConstAudioBuffer engineInput = bypass_->beginBlock(input);
+    processLeftRight(engineInput, output);
+    bypass_->endBlock(output);
 }
 
 // Per-Sample processing for non-block processing
@@ -49,6 +50,12 @@ void Processor::updateAlgorithmParams()
 {
     // map and assign algorithm parameters
     // e.g. filter_cutoff = 20000.0f * activeControls_.params[0];
+
+    // The only engine until the engine host (H5) selects among them.
+    const uint8_t blendParam = kEngineManifest[ENGINE_PASSTHROUGH].blendParam;
+    const float blend = (blendParam == ENGINE_PARAM_NONE) ? BypassController::kNoBlend
+                                                          : activeControls_.params[blendParam];
+    bypass_->setControls(activeControls_.runFlags, blend);
 }
 
 bool Processor::pushControls(const ProcessorControls &controls)

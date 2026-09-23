@@ -1,6 +1,7 @@
 #pragma once
 
 #include "audio_buffer.hpp"
+#include "bypass_controller.hpp"
 using dsp::AudioBuffer;
 
 #include <cstdint>
@@ -9,6 +10,7 @@ struct ProcessorControls{
 
     float params[8];        // 0..1, meaning set by the engine manifest
     uint16_t discrete;      // field layout per engine_manifest.h
+    uint16_t runFlags;      // RUN_FLAG_*, for the bypass controller
     float tempoHz;
     uint16_t tempoPhase;
 
@@ -17,12 +19,18 @@ struct ProcessorControls{
 class Processor {
 public:
 
+    struct Config
+    {
+        uint32_t          sampleRate;
+        BypassController* bypass;   // runs around the engine on every block
+    };
+
     Processor() = default;
     ~Processor() = default;
 
     //enum class AudioStatus { BUSY, READY, ERROR };
 
-    void init(uint32_t sampleRate);
+    void init(const Config& config);
 
     void processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer output);
     void processLeftRight(dsp::ConstAudioBuffer input, dsp::AudioBuffer output);
@@ -34,6 +42,7 @@ private:
 
     uint32_t sampleRate_;
     float samplePeriod_;
+    BypassController* bypass_ = nullptr;
 
     void updateAlgorithmParams();
     // pendingControls_ belongs to pushControls() while the flag is clear, and to
@@ -43,4 +52,3 @@ private:
     volatile bool controlsReady_ = false;
 
 } ;
-

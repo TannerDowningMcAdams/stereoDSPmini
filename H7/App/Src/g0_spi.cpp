@@ -32,6 +32,7 @@ G0Spi::Controls G0Spi::defaultControls()
     const EngineManifest& engine = kEngineManifest[ENGINE_PASSTHROUGH];
     Controls controls {};
     controls.engine = ENGINE_PASSTHROUGH;
+    controls.runFlags = RUN_FLAG_STEREO_IN;
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls.param[i] = engine.paramDefault[i]; }
     controls.discrete = engineDiscreteDefault(&engine);
     return controls;
