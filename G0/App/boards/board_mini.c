@@ -13,15 +13,15 @@ static const BoardPot pots[] = {
 
 // ON is the right footswitch and AUX the left (plan §3.3).
 static const BoardSwitch switches[] = {
-    { FTSW_R_GPIO_Port,    FTSW_R_Pin,    SWITCH_ROLE_ON },
-    { FTSW_L_GPIO_Port,    FTSW_L_Pin,    SWITCH_ROLE_AUX },
-    { MODE_SW_H_GPIO_Port, MODE_SW_H_Pin, SWITCH_ROLE_MODE_UP },
-    { MODE_SW_L_GPIO_Port, MODE_SW_L_Pin, SWITCH_ROLE_MODE_DOWN },
+    { FTSW_R_GPIO_Port,    FTSW_R_Pin,    SWITCH_ROLE_ON,        false },
+    { FTSW_L_GPIO_Port,    FTSW_L_Pin,    SWITCH_ROLE_AUX,       false },
+    { MODE_SW_H_GPIO_Port, MODE_SW_H_Pin, SWITCH_ROLE_MODE_UP,   true },
+    { MODE_SW_L_GPIO_Port, MODE_SW_L_Pin, SWITCH_ROLE_MODE_DOWN, true },
 };
 
 static const BoardPwmLed pwmLeds[] = {
-    { TIM17, 1u },      // LED_1_PWM, PB9
-    { TIM16, 1u },      // LED_2_PWM, PD0
+    { TIM17, 1u, SWITCH_ROLE_AUX },     // LED_1_PWM, PB9
+    { TIM16, 1u, SWITCH_ROLE_ON },      // LED_2_PWM, PD0
 };
 
 static const BoardGpioLed gpioLeds[] = {
