@@ -46,10 +46,12 @@ void Audio::serviceBlock()
     // would pair a stale count with a new half, and process that half twice.
     uint32_t count;
     uint32_t half;
+    uint32_t cycles;
     do
     {
-        count = blockCount_;
-        half  = offset_;
+        count  = blockCount_;
+        half   = offset_;
+        cycles = blockCycles_;
     } while (count != blockCount_);
 
     if (count == consumedCount_) { return; }
@@ -62,7 +64,7 @@ void Audio::serviceBlock()
 
     inputBuffer_.fromInterleaved(src, kInt24ToFloat, kDmaWordShift);
 
-    if (processor_ != nullptr) { processor_->processAudioBlock(inputBuffer_, outputBuffer_); }
+    if (processor_ != nullptr) { processor_->processAudioBlock(inputBuffer_, outputBuffer_, cycles); }
 
     outputBuffer_.toInterleaved(dst, kFloatToInt24, kDmaWordShift);
 }
@@ -81,10 +83,11 @@ void Audio::txComplete()
     signalBlock();
 }
 
-// offset_ is written before blockCount_, so a reader that sees the new count
-// also sees the new half.
+// offset_ and blockCycles_ are written before blockCount_, so a reader that sees
+// the new count also sees the new half and stamp.
 void Audio::signalBlock()
 {
+    blockCycles_ = DWT->CYCCNT;
     const uint32_t n = blockCount_ + 1u;
     if ((n - consumedCount_) > 1u) { blockOverruns_ = blockOverruns_ + 1u; }
     blockCount_ = n;

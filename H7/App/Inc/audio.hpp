@@ -87,6 +87,8 @@ private:
     volatile uint32_t blockCount_    = 0;
     volatile uint32_t consumedCount_ = 0;
     volatile uint32_t blockOverruns_ = 0;
+    // DWT cycle count when the latest block was published, written with the count.
+    volatile uint32_t blockCycles_   = 0;
 
     // Cached copy buffers for packing and unpacking
     // Half the size of the DMA buffers (not double buffered)
