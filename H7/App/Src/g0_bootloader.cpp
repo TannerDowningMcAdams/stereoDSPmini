@@ -102,7 +102,7 @@ bool G0Bootloader::resync()
 // First two words of a Cortex-M image: initial SP in G0 RAM, Thumb reset vector in the image.
 bool G0Bootloader::imageValid(const uint8_t* image, size_t size)
 {
-    if (image == nullptr || size < 8u || size > kFlashSize) { return false; }
+    if (image == nullptr || size < 8u || size > kAppSize) { return false; }
     uint32_t sp = 0;
     uint32_t reset = 0;
     std::memcpy(&sp, image, sizeof(sp));

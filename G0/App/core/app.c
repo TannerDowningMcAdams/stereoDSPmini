@@ -15,8 +15,11 @@
 #include <stdint.h>
 
 // TIM1 runs at 1 ms. CC1 starts each SPI frame (~100 us) and then wakes the thread
-// tick, which runs input -> ui -> output. The ADC scan (~6.9 ms) is triggered by
+// tick, which runs input -> ui -> output. The ADC scan (under 1 ms) is triggered by
 // TRGO2 on the update event, which the repetition counter holds to every 10th period.
+
+_Static_assert(BOARD_MAX_SWITCHES <= SWITCH_MAX, "switch.c cannot hold every board switch");
+_Static_assert(BOARD_MAX_POTS <= POT_MAX, "pot.c cannot hold every board pot");
 
 // Written by the ADC DMA; each halfword is one whole oversampled result.
 static volatile uint16_t potAdcBufferDMA[BOARD_MAX_POTS];

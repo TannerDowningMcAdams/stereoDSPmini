@@ -69,6 +69,29 @@ bool System::waitForG0(uint32_t windowMs, uint32_t framesBefore)
     return false;
 }
 
+// True once no CS edge has arrived for kG0SilentMs.
+bool System::waitForG0Silent(uint32_t windowMs)
+{
+    const uint32_t start = HAL_GetTick();
+    uint32_t lastCount = g0Spi_.frameCount();
+    uint32_t lastEdge  = start;
+    while ((HAL_GetTick() - start) < windowMs)
+    {
+        const uint32_t now   = HAL_GetTick();
+        const uint32_t count = g0Spi_.frameCount();
+        if (count != lastCount)
+        {
+            lastCount = count;
+            lastEdge  = now;
+        }
+        else if ((now - lastEdge) >= kG0SilentMs)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void System::poll()
 {
     audio_.serviceErrors();
@@ -94,7 +117,7 @@ System::G0State System::updateG0()
             return G0State::UpToDate;
         }
         g0Spi_.setBootloaderRequest(true);
-        HAL_Delay(kG0RequestMs);
+        (void) waitForG0Silent(kG0ResetWindowMs);
         g0Spi_.setBootloaderRequest(false);
         // The transfer armed at the G0's last frame still holds the magic. Left in
         // place, the new image would receive it first and return to the bootloader.
@@ -122,7 +145,14 @@ void System::spiTxRxComplete()
 {
     // Only a valid frame drives anything. Until the G0's first one, the defaults
     // set in init() stand.
-    if (!g0Spi_.txRxComplete() || !g0Confirmed()) { return; }
+    if (!g0Spi_.txRxComplete()) { return; }
+    // A G0 that reports in after the boot check, e.g. one released from a debugger.
+    // Failed stays latched.
+    if (g0State_ == G0State::Absent && g0Spi_.g0FwVersion() == G0_FW_VERSION)
+    {
+        g0State_ = G0State::UpToDate;
+    }
+    if (!g0Confirmed()) { return; }
 
     // A refused set is dropped, not retried: the next frame 1 ms later is fresher.
     (void) processor_.pushControls(toProcessorControls(g0Spi_.controls()));

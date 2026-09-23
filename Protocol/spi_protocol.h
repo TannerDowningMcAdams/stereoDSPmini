@@ -8,7 +8,6 @@
  * duplex, 16-bit words. The SPI hardware appends a CRC word; a frame that fails it
  * is dropped by the receiver, which keeps its last good values. */
 #define SPI_PACKET_NUM_WORDS   24u
-#define PROTOCOL_CRC_POLY      0x11021
 
 #define SPI_MSG_ID_G0_TO_H7    0x5A9Fu
 #define SPI_MSG_ID_H7_TO_G0    0xA5F9u

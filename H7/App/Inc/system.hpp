@@ -42,8 +42,10 @@ private:
     static constexpr uint32_t kG0ProbeWindowMs = 250u;
     // Covers the G0 app's boot to its first frame.
     static constexpr uint32_t kG0LinkWindowMs  = 100u;
-    // Frames carrying the bootloader magic; the G0 acts on the first it receives.
-    static constexpr uint32_t kG0RequestMs     = 20u;
+    // The bootloader request stays up until the G0's frames stop for kG0SilentMs,
+    // which means it has reset. kG0ResetWindowMs bounds a G0 that ignores the request.
+    static constexpr uint32_t kG0SilentMs      = 5u;
+    static constexpr uint32_t kG0ResetWindowMs = 100u;
     // Covers the new G0 app's boot after Go to its first valid frame.
     static constexpr uint32_t kG0ConfirmWindowMs = 500u;
 
@@ -58,6 +60,7 @@ private:
     G0State updateG0();
     bool g0Confirmed() const;
     bool waitForG0(uint32_t windowMs, uint32_t framesBefore);
+    bool waitForG0Silent(uint32_t windowMs);
     static ProcessorControls toProcessorControls(const G0Spi::Controls& controls);
 
 } ;

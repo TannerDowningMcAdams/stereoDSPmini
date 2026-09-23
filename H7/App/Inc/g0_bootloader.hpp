@@ -32,6 +32,8 @@ public:
 
     static constexpr uint32_t kFlashBase    = 0x08000000u;
     static constexpr uint32_t kFlashSize    = 64u * 1024u;
+    // FLASH region of STM32G030xx_FLASH.ld. The pages above it hold presets and settings.
+    static constexpr uint32_t kAppSize      = 56u * 1024u;
     static constexpr uint32_t kPageSize     = 2048u;
     static constexpr uint32_t kRamBase      = 0x20000000u;
     static constexpr uint32_t kRamSize      = 8u * 1024u;
