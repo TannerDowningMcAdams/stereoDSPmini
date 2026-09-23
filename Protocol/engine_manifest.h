@@ -24,7 +24,16 @@
 
 enum {
     ENGINE_PASSTHROUGH = 0,
+    ENGINE_TEST_DELAY,          /* bench check for the tempo link (M3) */
     ENGINE_COUNT
+};
+
+/* ENGINE_TEST_DELAY: param 0 feedback, 1 mix, 2 click level. The mode field picks
+ * the repeat: quarter, dotted eighth, eighth. */
+enum {
+    TEST_DELAY_PARAM_FEEDBACK = 0,
+    TEST_DELAY_PARAM_MIX,
+    TEST_DELAY_PARAM_CLICK
 };
 
 enum {
@@ -62,6 +71,18 @@ static MANIFEST_CONST EngineManifest kEngineManifest[ENGINE_COUNT] = {
         0u,
         ENGINE_PARAM_NONE,
         false,
+        false,
+    },
+    /* ENGINE_TEST_DELAY */
+    {
+        { 0x6000u, 0x8000u, 0x8000u, 0x8000u, 0x8000u, 0x8000u, 0x8000u, 0x8000u },
+        { { 0u, 2u, 0u } },
+        1u,
+        3u,
+        AUX_ROLE_TAP,
+        0u,
+        TEST_DELAY_PARAM_MIX,
+        true,
         false,
     },
 };

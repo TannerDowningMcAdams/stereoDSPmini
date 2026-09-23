@@ -31,7 +31,9 @@ static const BoardGpioLed gpioLeds[] = {
     { LED_6_GPIO_Port, LED_6_Pin },
 };
 
+// engines[0] is what a cold boot loads until presets exist (M4).
 static const uint8_t engines[] = {
+    ENGINE_TEST_DELAY,
     ENGINE_PASSTHROUGH,
 };
 
