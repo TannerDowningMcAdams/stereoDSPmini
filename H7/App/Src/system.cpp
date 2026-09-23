@@ -25,16 +25,19 @@ void System::init()
         { RELAY_R_GPIO_Port, RELAY_R_Pin },
     };
     const AnalogDryThru::Config dryConfig   { &hdac1, DAC_CHANNEL_1, &hopamp1 };
+    const BypassController::Config bypassConfig { relayConfig, dryConfig,
+                                                  Audio::kSampleRate, Audio::kBlockSize };
     const G0Spi::Config         spiConfig   { &hspi2, G0_EXTI_Pin };
     const Audio::Config         audioConfig { &hsai_BlockA1, &hsai_BlockB1,
                                               { CODEC_NRST_GPIO_Port, CODEC_NRST_Pin } };
+    static_assert(Audio::kBlockSize <= BypassController::kMaxBlockSize, "bypass scratch too small");
 
+    // Unengaged from here: relays off, VCA at -100 dB.
+    bypass_.init(bypassConfig);
     // Defaults are pushed before SPI starts: pushControls() assumes one producer,
     // and after this the SPI ISR is the only one.
-    processor_.init(audio_.kSampleRate);
+    processor_.init({ Audio::kSampleRate, &bypass_ });
     processor_.pushControls(toProcessorControls(G0Spi::defaultControls()));
-    relay_.init(relayConfig);
-    analogDryThru_.init(dryConfig);
     g0Spi_.init(spiConfig);
 #if STEREODSPMINI_G0_IMAGE
     g0State_ = updateG0();
@@ -44,13 +47,12 @@ void System::init()
     // Processor is ready before the first block can be published.
     audio_.setProcessor(&processor_);
     audio_.init(audioConfig);
-    // Relay pins have been LOW (true bypass) since MX_GPIO_Init. Without a confirmed G0 there
-    // is no UI, so they stay there; otherwise on until the bypass controller (M2) owns them.
-    if (g0State_ == G0State::UpToDate || g0State_ == G0State::Programmed)
-    {
-        relay_.rightOn();
-        relay_.leftOn();
-    }
+}
+
+// Without a confirmed G0 there is no UI to trust, so its frames never engage the pedal.
+bool System::g0Confirmed() const
+{
+    return g0State_ == G0State::UpToDate || g0State_ == G0State::Programmed;
 }
 
 // True once a valid frame newer than framesBefore reports the expected G0 image version.
@@ -120,7 +122,7 @@ void System::spiTxRxComplete()
 {
     // Only a valid frame drives anything. Until the G0's first one, the defaults
     // set in init() stand.
-    if (!g0Spi_.txRxComplete()) { return; }
+    if (!g0Spi_.txRxComplete() || !g0Confirmed()) { return; }
 
     // A refused set is dropped, not retried: the next frame 1 ms later is fresher.
     (void) processor_.pushControls(toProcessorControls(g0Spi_.controls()));
@@ -134,6 +136,7 @@ ProcessorControls System::toProcessorControls(const G0Spi::Controls& controls)
         out.params[i] = controls.param[i] * (1.0f / 65535.0f);
     }
     out.discrete   = controls.discrete;
+    out.runFlags   = controls.runFlags;
     out.tempoHz    = controls.tempoHz;
     out.tempoPhase = controls.tempoPhase;
     return out;

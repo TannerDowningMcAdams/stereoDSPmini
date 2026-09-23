@@ -58,6 +58,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/analog_dry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/app_main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/audio.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/bypass_controller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/callbacks.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/g0_bootloader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/g0_spi.cpp

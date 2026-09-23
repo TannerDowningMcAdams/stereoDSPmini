@@ -1,10 +1,9 @@
 #pragma once
 #include "audio.hpp"
 #include "audio_buffer.hpp"
-#include "relay.hpp"
+#include "bypass_controller.hpp"
 #include "g0_spi.hpp"
 #include "g0_bootloader.hpp"
-#include "analog_dry.hpp"
 #include "processor.hpp"
 #include <cstdint>
 #ifdef __cplusplus
@@ -50,13 +49,14 @@ private:
 
     // Boot-time G0 check. The relays leave true bypass only on UpToDate or Programmed.
     enum class G0State : uint8_t { Pending, UpToDate, Programmed, Absent, Failed };
-    G0State g0State_ = G0State::Pending;
+    // Read by the SPI ISR: G0 controls reach the audio path only once it is confirmed.
+    volatile G0State g0State_ = G0State::Pending;
 
-    Relay relay_;
-    AnalogDryThru analogDryThru_;
+    BypassController bypass_;
     Processor processor_;
 
     G0State updateG0();
+    bool g0Confirmed() const;
     bool waitForG0(uint32_t windowMs, uint32_t framesBefore);
     static ProcessorControls toProcessorControls(const G0Spi::Controls& controls);
 
