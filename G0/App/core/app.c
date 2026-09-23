@@ -8,6 +8,7 @@
 #include "pot.h"
 #include "spi_link.h"
 #include "switch.h"
+#include "tempo.h"
 #include "tim.h"
 #include "timebase.h"
 #include "ui_context.h"
@@ -54,6 +55,7 @@ void appInit(void)
     potInit(kBoard.numPots);
 
     timebaseInit();
+    tempoInit();
     ledInit();
     uiInit();
 
@@ -94,8 +96,10 @@ static void buildFrame(void)
 
 static void appTick(void)
 {
+    const uint32_t nowUs = timebaseNowUs();
     spiLinkPoll();
-    switchPoll(readSwitches(), timebaseNowUs());
+    switchPoll(readSwitches(), nowUs);
+    tempoPoll(nowUs);
     readPots();
     uiTick();
     ledRender();

@@ -6,6 +6,7 @@
 #include "led.h"
 #include "pot.h"
 #include "spi_link.h"
+#include "tempo.h"
 #include "timebase.h"
 
 // The H7 answers the G0's first frame; this covers a few dropped ones.
@@ -16,6 +17,8 @@
 #define DEFAULT_RUN_FLAGS   (RUN_FLAG_STEREO_IN)
 
 #define LED_FULL            255u
+// The AUX LED is lit for the first quarter of each beat.
+#define BEAT_LIT_PHASE      0x4000u
 
 typedef enum {
     CONTEXT_BOOT,
@@ -82,6 +85,17 @@ static void adoptEcho(const H7ToG0Packet* echo)
     discrete    = echo->discrete;
     ownerMask   = echo->ownerMask;
     potRebaseline();
+    // No phase in the echo, so the beat restarts now; a MIDI tempo returns with the clock.
+    // Period and signed cast: a float multiply or unsigned cast links 0.7-2 KB more soft-float.
+    const uint16_t tempoSrc = (uint16_t) ((echo->runFlags & RUN_FLAG_TEMPO_SRC_MASK) >> RUN_FLAG_TEMPO_SRC_SHIFT);
+    if (tempoSrc == TEMPO_SRC_INTERNAL && echo->tempoHz > 0.0f)
+    {
+        const uint32_t periodUs = (uint32_t) (int32_t) (1000000.0f / echo->tempoHz);
+        if (periodUs >= TEMPO_MIN_PERIOD_US / 2u)
+        {
+            tempoRecall((uint16_t) ((3000000000u / periodUs) * 2u), timebaseNowUs());
+        }
+    }
     context = ((echo->runFlags & RUN_FLAG_ENGAGED) != 0u) ? CONTEXT_RUN : CONTEXT_BYPASS;
 }
 
@@ -125,8 +139,8 @@ static void handleGesture(const Gesture* gesture)
             context = CONTEXT_BYPASS;
             break;
         case GESTURE_AUX_SHORT:
-            // Tap tempo (AUX_ROLE_TAP) arrives with M3.
-            if (manifest()->auxRole == AUX_ROLE_TOGGLE)
+            if (manifest()->auxRole == AUX_ROLE_TAP) { tempoTap(gesture->pressUs); }
+            else if (manifest()->auxRole == AUX_ROLE_TOGGLE)
             {
                 fieldSet(manifest()->auxField, (uint8_t) (fieldGet(manifest()->auxField) ^ 1u));
             }
@@ -159,8 +173,18 @@ static void renderLeds(void)
     const LedPattern on  = { LED_ON, LED_FULL, 0u, 0u };
     const bool run = context == CONTEXT_RUN;
 
-    // The AUX LED blinks with tempo (M3); here it shows only a toggle field.
-    const bool auxLit = run && manifest()->auxRole == AUX_ROLE_TOGGLE && fieldGet(manifest()->auxField) != 0u;
+    // A toggle field shows its state in RUN. Otherwise the AUX LED blinks with the
+    // tempo, in BYPASS too, whenever the engine uses one and one is set.
+    bool auxLit;
+    if (run && manifest()->auxRole == AUX_ROLE_TOGGLE)
+    {
+        auxLit = fieldGet(manifest()->auxField) != 0u;
+    }
+    else
+    {
+        auxLit = manifest()->usesTempo && tempoPeriodUs() != 0u &&
+                 tempoPhaseAt(timebaseNowUs()) < BEAT_LIT_PHASE;
+    }
     ledPwmSet(onLed, run ? &on : &off);
     ledPwmSet(auxLed, auxLit ? &on : &off);
 
@@ -189,14 +213,16 @@ bool uiFillFrame(G0ToH7Packet* tx)
 {
     if (context == CONTEXT_BOOT) { return false; }
 
-    tx->runFlags    = (uint16_t) (DEFAULT_RUN_FLAGS | ((context == CONTEXT_RUN) ? RUN_FLAG_ENGAGED : 0u));
+    const uint32_t period = tempoPeriodUs();
+    tx->runFlags    = (uint16_t) (DEFAULT_RUN_FLAGS | ((context == CONTEXT_RUN) ? RUN_FLAG_ENGAGED : 0u) |
+                                  (tempoSource() << RUN_FLAG_TEMPO_SRC_SHIFT));
     tx->engine      = engine;
     tx->presetIndex = presetIndex;
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { tx->param[i] = param[i]; }
     tx->discrete     = discrete;
     tx->eventToggles = 0u;
-    tx->tempoHz      = 0.0f;
-    tx->tempoPhase   = 0u;
+    tx->tempoHz      = (period != 0u) ? 1000000.0f / (float) period : 0.0f;
+    tx->tempoPhase   = (period != 0u) ? tempoPhaseAt(spiLinkNextEdgeUs()) : 0u;
     tx->ownerMask    = ownerMask;
     return true;
 }
