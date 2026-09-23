@@ -53,18 +53,24 @@ set(BOARD mini CACHE STRING "UI board file under App/boards")
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core/app.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/core/boot_state.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core/bootloader.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core/spi_link.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core/timebase.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hid/gesture.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hid/led.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hid/pot.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hid/switch.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/ui/ui_context.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/boards/board_${BOARD}.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/led.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hid
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/ui
     ${CMAKE_CURRENT_SOURCE_DIR}/App/boards
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Inc
     ${CMAKE_CURRENT_SOURCE_DIR}/../Protocol
 )
 
