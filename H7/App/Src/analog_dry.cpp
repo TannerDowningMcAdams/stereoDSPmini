@@ -1,4 +1,5 @@
 #include "analog_dry.hpp"
+#include <cmath>
 
 void AnalogDryThru::init(const Config& config)
 {
@@ -20,4 +21,12 @@ void AnalogDryThru::setVcaValue(uint16_t dryStrength)
     uint16_t dryStrengthMask = dryStrength & (0x0FFF);
     HAL_DAC_SetValue(config_.dac, config_.dacChannel, DAC_ALIGN_12B_R, dryStrengthMask);
     currentValue_ = dryStrengthMask;
+}
+
+void AnalogDryThru::setGain(float gain)
+{
+    if (gain <= kMinGain) { setVcaValue(0u); return; }
+    if (gain >= 1.0f)     { setVcaValue(kFullScale); return; }
+    const float db = 20.0f * log10f(gain);
+    setVcaValue(static_cast<uint16_t>(kFullScale * (1.0f + db / kRangeDb) + 0.5f));
 }
