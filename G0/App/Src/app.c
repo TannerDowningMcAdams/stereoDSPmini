@@ -28,15 +28,16 @@ static void packSpiData(void);
 static void startSpiFrame(void);
 static void endSpiFrame(void);
 
-static bool footswitchRHeld(void)
+// AUX is the left footswitch. ON (FTSW_R) held at power-on is reserved for settings.
+static bool footswitchAuxHeld(void)
 {
-    return HAL_GPIO_ReadPin(FTSW_R_GPIO_Port, FTSW_R_Pin) == GPIO_PIN_RESET;
+    return HAL_GPIO_ReadPin(FTSW_L_GPIO_Port, FTSW_L_Pin) == GPIO_PIN_RESET;
 }
 
 void appInit(void)
 {
-    // Bench trigger: FTSW_R held through boot enters the system bootloader.
-    if (footswitchRHeld()) { HAL_Delay(20); if (footswitchRHeld()) { bootloaderRequest(); } }
+    // Bench trigger: AUX held through boot enters the system bootloader.
+    if (footswitchAuxHeld()) { HAL_Delay(20); if (footswitchAuxHeld()) { bootloaderRequest(); } }
 
     HAL_ADCEx_Calibration_Start(&hadc1);
     HAL_ADC_Start_DMA(&hadc1, (uint32_t *) potAdcBufferDMA, NUM_POTENTIOMETERS);
