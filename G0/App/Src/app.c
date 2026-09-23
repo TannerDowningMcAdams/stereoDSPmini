@@ -34,10 +34,23 @@ static bool footswitchAuxHeld(void)
     return HAL_GPIO_ReadPin(FTSW_L_GPIO_Port, FTSW_L_Pin) == GPIO_PIN_RESET;
 }
 
+// True only for power-on or brown-out. PINRSTF is no use here: every internal reset
+// also drives NRST. Flags are cleared so the next reset reports only its own cause.
+static bool resetWasPowerOn(void)
+{
+    bool powerOn = __HAL_RCC_GET_FLAG(RCC_FLAG_PWRRST) != 0u;
+    __HAL_RCC_CLEAR_RESET_FLAGS();
+    return powerOn;
+}
+
 void appInit(void)
 {
-    // Bench trigger: AUX held through boot enters the system bootloader.
-    if (footswitchAuxHeld()) { HAL_Delay(20); if (footswitchAuxHeld()) { bootloaderRequest(); } }
+    // Cold boot only: a watchdog reset while AUX happens to be held must not strand
+    // the G0 in its bootloader, since the H7 only probes for it at its own boot.
+    const bool coldBoot = resetWasPowerOn();
+
+    // Bench trigger: AUX held through power-on enters the system bootloader.
+    if (coldBoot && footswitchAuxHeld()) { HAL_Delay(20); if (footswitchAuxHeld()) { bootloaderRequest(); } }
 
     HAL_ADCEx_Calibration_Start(&hadc1);
     HAL_ADC_Start_DMA(&hadc1, (uint32_t *) potAdcBufferDMA, NUM_POTENTIOMETERS);
