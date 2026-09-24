@@ -60,14 +60,19 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/audio.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/bypass_controller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/callbacks.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/engine_arena.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/engine_host.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/engine_registry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/g0_bootloader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/g0_spi.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/passthrough_engine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/processor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/relay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/status.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/tempo_follower.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/test_delay.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/test_delay_engine.cpp
 )
 
 # Add include paths

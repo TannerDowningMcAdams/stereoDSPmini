@@ -1,23 +1,10 @@
 #include "test_delay.hpp"
-#include "engine_manifest.h"
 #include <cmath>
 
-// The CubeMX linker script has no NOLOAD section for AXI SRAM, so the lines are
-// declared %nobits: loadable contents would put 385 KB of zeros into the image. The
-// startup code does not clear AXI SRAM, which powers up with random data and ECC
-// words (AN5342), so init() writes every word once.
-#if defined(__arm__)
-#define AXI_NOINIT __attribute__((section(".RAM_AXI0,\"aw\",%nobits@")))
-#else
-#define AXI_NOINIT
-#endif
-
-AXI_NOINIT float TestDelay::left_[TestDelay::kMaxFrames];
-AXI_NOINIT float TestDelay::right_[TestDelay::kMaxFrames];
 float TestDelay::clickTable_[TestDelay::kClickFrames];
 
-// Repeat per mode field value: quarter, dotted eighth, eighth.
-static constexpr float kSubdivision[ENGINE_MAX_MODE_OPTIONS] = { 1.0f, 0.75f, 0.5f, 0.5f };
+// Repeat per option: quarter, dotted eighth, eighth.
+static constexpr float kSubdivision[TestDelay::kRepeatOptions] = { 1.0f, 0.75f, 0.5f };
 
 // Glide time for a change of repeat time. The pitch bend while it glides is the
 // audible sign that a new tempo arrived.
@@ -38,6 +25,8 @@ static float limitLoop(float x)
 
 void TestDelay::init(const Config& config)
 {
+    left_       = config.left;
+    right_      = config.right;
     sampleRate_ = static_cast<float>(config.sampleRate);
     decay_ = std::exp(-1.0f / (kGlideSeconds * sampleRate_));
 
@@ -48,6 +37,8 @@ void TestDelay::init(const Config& config)
         clickTable_[i] = 0.5f - 0.5f * std::cos(kTwoPi * (i + 1u) / (kClickFrames + 1u));
     }
 
+    // The lines come from an arena in AXI SRAM, which powers up with random data and
+    // ECC words, and is not cleared between engines.
     for (uint32_t i = 0; i < kMaxFrames; i++)
     {
         left_[i]  = 0.0f;
@@ -71,21 +62,19 @@ float TestDelay::clickSample(uint16_t index)
     return (index < kClickFrames) ? clickTable_[index] : 0.0f;
 }
 
-void TestDelay::setControls(const float* params, uint16_t discrete, float tempoHz, bool engaged)
+void TestDelay::setControls(const float* params, uint8_t repeat, float tempoHz, bool engaged)
 {
-    const EngineManifest& manifest = kEngineManifest[ENGINE_TEST_DELAY];
-    const DiscreteField&  mode     = manifest.field[ENGINE_MODE_FIELD];
-    const uint16_t option = (discrete >> mode.offset) & ((1u << mode.width) - 1u);
+    if (repeat >= kRepeatOptions) { repeat = kRepeatOptions - 1u; }
 
     const float hz = (tempoHz > 0.0f) ? tempoHz : kDefaultHz;
-    float frames = sampleRate_ * kSubdivision[option] / hz;
+    float frames = sampleRate_ * kSubdivision[repeat] / hz;
     while (frames > kMaxFrames - 2u) { frames *= 0.5f; }
     // The delay heard now stays put; only the target moves.
     offset_ += target_ - frames;
     target_  = frames;
 
-    feedback_   = params[TEST_DELAY_PARAM_FEEDBACK] * kMaxFeedback;
-    clickLevel_ = params[TEST_DELAY_PARAM_CLICK] * kClickPeak;
+    feedback_   = params[kParamFeedback] * kMaxFeedback;
+    clickLevel_ = params[kParamClick] * kClickPeak;
     // Bypassed with trails, the repeats ring out but the metronome stops.
     clickOn_    = engaged && tempoHz > 0.0f;
 }
