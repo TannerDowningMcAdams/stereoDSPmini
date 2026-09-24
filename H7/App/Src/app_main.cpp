@@ -16,11 +16,17 @@ extern "C" void App_Run(void)
     // Initialize peripheral objects and interrupts
     gSystem.init();
 
-    // All DSP runs here, below every interrupt. No WFI: a block published between
-    // poll() and WFI would sleep until SysTick (1 ms), past the block deadline.
+    // DSP runs in PendSV. Thread mode is left for work of any length, such as
+    // engine activation.
     for(;;)
     {
         gSystem.poll();
         __NOP();
     }
+}
+
+// From PendSV_Handler, at priority 15.
+extern "C" void App_PendSV(void)
+{
+    gSystem.audioPendSV();
 }

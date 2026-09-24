@@ -1,4 +1,5 @@
 #include "g0_spi.hpp"
+#include "engine_registry.hpp"
 #include "protocol_version.h"
 #include <cstdint>
 #ifdef __cplusplus
@@ -21,21 +22,52 @@ void G0Spi::init(const Config& config)
     config_ = config;
 }
 
-// The manifest defaults of the only engine the H7 has.
+// The engine's own values come from the engine host through setApplied().
 G0Spi::Controls G0Spi::defaultControls()
 {
-    const EngineManifest& engine = kEngineManifest[ENGINE_PASSTHROUGH];
     Controls controls {};
-    controls.engine = ENGINE_PASSTHROUGH;
+    controls.engineId = ENGINE_ID_NONE;
     controls.runFlags = RUN_FLAG_STEREO_IN;
-    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls.param[i] = engine.paramDefault[i]; }
-    controls.discrete = engineDiscreteDefault(&engine);
     return controls;
 }
 
 void G0Spi::restartFrame()
 {
     EXTI->SWIER1 = config_.csPin;
+}
+
+bool G0Spi::request(Request& out) const
+{
+    // An ISR that lands during the copy moves the count, and the copy is retried.
+    uint32_t count;
+    do
+    {
+        count = validFrameCount_;
+        __DMB();
+        out = request_;
+        __DMB();
+    } while (count != validFrameCount_);
+    return count != 0u;
+}
+
+void G0Spi::publishEngine(const EngineStatus& status)
+{
+    const uint8_t next = static_cast<uint8_t>(engineStatusIndex_ ^ 1u);
+    engineStatus_[next] = status;
+    __DMB();    // release: the buffer is complete before the ISRs can read it
+    engineStatusIndex_ = next;
+}
+
+bool G0Spi::setApplied(const uint16_t* param, uint16_t discrete, uint8_t defaultsSeq)
+{
+    if (appliedReady_) { return false; }
+
+    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { applied_.param[i] = param[i]; }
+    applied_.discrete    = discrete;
+    applied_.defaultsSeq = defaultsSeq;
+    __DMB();    // release: payload visible before the flag that publishes it
+    appliedReady_ = true;
+    return true;
 }
 
 bool G0Spi::txRxComplete()
@@ -59,25 +91,43 @@ bool G0Spi::txRxComplete()
 
 void G0Spi::parse()
 {
-    frameSeq_              = rxPacketDMA_.frameSeq;
-    controls_.engine       = rxPacketDMA_.engine;
-    controls_.presetIndex  = rxPacketDMA_.presetIndex;
-    controls_.runFlags     = rxPacketDMA_.runFlags;
-    controls_.eventToggles = rxPacketDMA_.eventToggles;
-    controls_.tempoHz      = rxPacketDMA_.tempoHz;
-    controls_.tempoPhase   = rxPacketDMA_.tempoPhase;
-    controls_.ownerMask    = rxPacketDMA_.ownerMask;
-    controls_.frameSeq     = rxPacketDMA_.frameSeq;
+    const G0ToH7Packet& rx = rxPacketDMA_;
+    frameSeq_              = rx.frameSeq;
+    controls_.presetIndex  = rx.presetIndex;
+    controls_.runFlags     = rx.runFlags;
+    controls_.eventToggles = rx.eventToggles;
+    controls_.tempoHz      = rx.tempoHz;
+    controls_.tempoPhase   = rx.tempoPhase;
+    controls_.ownerMask    = rx.ownerMask;
+    controls_.frameSeq     = rx.frameSeq;
+    engineQuery_           = rx.engineQuery;
 
-    const uint8_t engine = rxPacketDMA_.engine;
-    if (engine != activeEngine_ && engine < ENGINE_COUNT && !kEngineManifest[engine].needsLoad)
+    const bool pending = (rx.g0Flags & G0_FLAG_DEFAULTS_PENDING) != 0u;
+    request_.engineId        = rx.engineId;
+    request_.defaultsSeq     = rx.defaultsSeq;
+    request_.defaultsPending = pending;
+    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { request_.param[i] = rx.param[i]; }
+    request_.discrete        = rx.discrete;
+
+    if (appliedReady_)
     {
-        activeEngine_ = engine;
+        __DMB();    // acquire: flag read before payload read
+        for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls_.param[i] = applied_.param[i]; }
+        controls_.discrete = applied_.discrete;
+        defaultsSeqEcho_   = applied_.defaultsSeq;
+        __DMB();    // payload consumed before the channel reopens
+        appliedReady_ = false;
     }
-    // A new preset's values must not drive the engine it replaces (plan §4.1).
-    if (engine != activeEngine_) { return; }
-    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls_.param[i] = rxPacketDMA_.param[i]; }
-    controls_.discrete = rxPacketDMA_.discrete;
+
+    const EngineStatus& status = engineStatus_[engineStatusIndex_];
+    const bool ready = (status.flags & H7_FLAG_ENGINE_READY) != 0u;
+    controls_.engineId = ready ? status.activeId : static_cast<uint16_t>(ENGINE_ID_NONE);
+
+    // A new preset's values must not drive the engine it replaces (plan §4.1), and
+    // values from before a defaults request must not replace the defaults.
+    if (!ready || rx.engineId != status.activeId || pending) { return; }
+    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls_.param[i] = rx.param[i]; }
+    controls_.discrete = rx.discrete;
 }
 
 bool G0Spi::linkUp() const
@@ -87,15 +137,22 @@ bool G0Spi::linkUp() const
 
 void G0Spi::buildTx()
 {
+    const EngineStatus& status = engineStatus_[engineStatusIndex_];
     H7ToG0Packet& tx = txPacketDMA_;
     tx.messageId       = SPI_MSG_ID_H7_TO_G0;
     tx.version         = PROTOCOL_VERSION;
     tx.bootloaderMagic = bootloaderRequest_ ? SPI_BOOTLOADER_MAGIC : 0u;
     tx.h7FwVersion     = H7_FW_VERSION;
     tx.frameSeqEcho    = frameSeq_;
-    tx.h7Flags         = static_cast<uint16_t>(H7_FLAG_ENGINE_READY |
+    tx.h7Flags         = static_cast<uint16_t>(status.flags |
                                                (validFrameCount_ != 0u ? H7_FLAG_STATE_VALID : 0u));
-    tx.activeEngine    = activeEngine_;
+    tx.activeEngine    = status.activeId;
+    tx.engineDesc      = status.descriptor;
+    tx.engineCount     = EngineRegistry::count();
+    tx.activeIndex     = status.activeIndex;
+    tx.engineQueryEcho = engineQuery_;
+    tx.defaultsSeqEcho = defaultsSeqEcho_;
+    tx.engineQueryId   = EngineRegistry::idAt(engineQuery_);
     tx.presetIndex     = controls_.presetIndex;
     tx.runFlags        = controls_.runFlags;
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { tx.param[i] = controls_.param[i]; }
