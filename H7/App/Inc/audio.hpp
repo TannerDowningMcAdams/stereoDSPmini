@@ -103,8 +103,9 @@ private:
 
     static constexpr float kInt24ToFloat = 1.0f / (1 << 23);
     static constexpr float kFloatToInt24 = (1 << 23);
-    // 24-bit codec data sits left-aligned in each 32-bit DMA word.
-    static constexpr uint16_t kDmaWordShift = 8;
+    // DataSize 24 in 32-bit slots right-aligns the SAI data register: RX
+    // zero-fills the top 8 bits, and TX sends only the low 24.
+    static constexpr uint16_t kDmaPadBits = 8;
 
     // HAL never clears hsai->ErrorCode while a transfer runs, so latch per block
     // and clear it on every callback: the count becomes a rate, the bits a union.

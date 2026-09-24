@@ -62,11 +62,11 @@ void Audio::serviceBlock()
     const int32_t* __restrict src = audioAdcDataDMA_ + (half * kHalfWords);
     int32_t*       __restrict dst = audioDacDataDMA_ + (half * kHalfWords);
 
-    inputBuffer_.fromInterleaved(src, kInt24ToFloat, kDmaWordShift);
+    inputBuffer_.fromInterleaved(src, kInt24ToFloat, kDmaPadBits);
 
     if (processor_ != nullptr) { processor_->processAudioBlock(inputBuffer_, outputBuffer_, cycles); }
 
-    outputBuffer_.toInterleaved(dst, kFloatToInt24, kDmaWordShift);
+    outputBuffer_.toInterleaved(dst, kFloatToInt24);
 }
 
 // The adc block is the only one that publishes, so these set the half for both rings.
