@@ -17,8 +17,6 @@
 #define DEFAULT_RUN_FLAGS   (RUN_FLAG_STEREO_IN)
 
 #define LED_FULL            255u
-// The AUX LED is lit for the first quarter of each beat.
-#define BEAT_LIT_PHASE      0x4000u
 
 typedef enum {
     CONTEXT_BOOT,
@@ -30,6 +28,11 @@ static UiContext context = CONTEXT_BOOT;
 static uint32_t  bootDeadline;
 static uint8_t   onLed;
 static uint8_t   auxLed;
+
+// Tempo LED. A blink starts where the beat phase wraps, and lasts a quarter beat.
+static uint16_t  lastBeatPhase;
+static uint32_t  blinkStartUs;
+static bool      tapThisTick;
 
 // Live state, sent every frame.
 static uint8_t  engine;
@@ -139,7 +142,11 @@ static void handleGesture(const Gesture* gesture)
             context = CONTEXT_BYPASS;
             break;
         case GESTURE_AUX_SHORT:
-            if (manifest()->auxRole == AUX_ROLE_TAP) { tempoTap(gesture->pressUs); }
+            if (manifest()->auxRole == AUX_ROLE_TAP)
+            {
+                tempoTap(gesture->pressUs);
+                tapThisTick = true;
+            }
             else if (manifest()->auxRole == AUX_ROLE_TOGGLE)
             {
                 fieldSet(manifest()->auxField, (uint8_t) (fieldGet(manifest()->auxField) ^ 1u));
@@ -167,6 +174,23 @@ static void applyPots(void)
     }
 }
 
+// True while the tempo LED should be lit. Called every tick to track the phase.
+static bool beatLit(void)
+{
+    const uint32_t period = tempoPeriodUs();
+    const uint32_t now    = timebaseNowUs();
+    const uint16_t phase  = (period != 0u) ? tempoPhaseAt(now) : 0u;
+    const bool wrapped = phase < lastBeatPhase;
+    lastBeatPhase = phase;
+
+    // A tap moves the beat onto its press, which also reads as a wrap. The LED waits
+    // for the next beat of the new grid instead, and a grid that shifts within half a
+    // beat of the last blink does not blink again.
+    if (wrapped && !tapThisTick && (now - blinkStartUs) >= period / 2u) { blinkStartUs = now; }
+    tapThisTick = false;
+    return period != 0u && (now - blinkStartUs) < period / 4u;
+}
+
 static void renderLeds(void)
 {
     const LedPattern off = { LED_OFF, 0u, 0u, 0u };
@@ -175,16 +199,10 @@ static void renderLeds(void)
 
     // A toggle field shows its state in RUN. Otherwise the AUX LED blinks with the
     // tempo, in BYPASS too, whenever the engine uses one and one is set.
+    const bool beat = beatLit();
     bool auxLit;
-    if (run && manifest()->auxRole == AUX_ROLE_TOGGLE)
-    {
-        auxLit = fieldGet(manifest()->auxField) != 0u;
-    }
-    else
-    {
-        auxLit = manifest()->usesTempo && tempoPeriodUs() != 0u &&
-                 tempoPhaseAt(timebaseNowUs()) < BEAT_LIT_PHASE;
-    }
+    if (run && manifest()->auxRole == AUX_ROLE_TOGGLE) { auxLit = fieldGet(manifest()->auxField) != 0u; }
+    else                                               { auxLit = manifest()->usesTempo && beat; }
     ledPwmSet(onLed, run ? &on : &off);
     ledPwmSet(auxLed, auxLit ? &on : &off);
 
