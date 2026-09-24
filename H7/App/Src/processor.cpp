@@ -1,19 +1,32 @@
 #include "processor.hpp"
 #include "audio_buffer.hpp"
-#include "engine_manifest.h"
+#include "spi_protocol.h"
 #include <cstdint>
-#include <cstring>
 #include "cmsis_compiler.h"
+
+static float blendOf(const Engine& engine, const EngineControls& controls)
+{
+    const uint8_t blendParam = engine.info().blendParam;
+    return (blendParam == kEngineParamNone) ? BypassController::kNoBlend : controls.params[blendParam];
+}
 
 void Processor::init(const Config& config)
 {
-    sampleRate_ = config.sampleRate;
-    samplePeriod_ = 1.0f / config.sampleRate;
     bypass_ = config.bypass;
-
     tempo_.init({ config.sampleRate, config.cyclesPerSecond });
-    testDelay_.init({ config.sampleRate });
-    engine_ = ENGINE_PASSTHROUGH;
+}
+
+void Processor::install(Engine* engine, const EngineControls& controls)
+{
+    engine_ = engine;
+    engine_->setControls(controls);
+    blend_ = blendOf(*engine_, controls);
+}
+
+void Processor::resume()
+{
+    __DMB();    // release: the installed engine is complete before PendSV runs it
+    parkRequest_ = false;
 }
 
 void Processor::processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer output, uint32_t blockCycles)
@@ -27,50 +40,80 @@ void Processor::processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer 
         controlsReady_ = false;
     }
 
+    followPark();
+
     // Runs whatever the engine, so a tempo engine starts on the beat.
     const int32_t beat = tempo_.advance(input.size());
 
     // Block Processing here, on the input the bypass controller hands over.
     const dsp::ConstAudioBuffer engineInput = bypass_->beginBlock(input);
-    if (engine_ == ENGINE_TEST_DELAY) { testDelay_.process(engineInput, output, beat); }
-    else                              { processLeftRight(engineInput, output); }
+    if (!parked_ && engine_ != nullptr)
+    {
+        const BlockContext ctx { beat, activeControls_.tempoHz, (activeControls_.runFlags & RUN_FLAG_ENGAGED) != 0u };
+        engine_->process(engineInput, output, ctx);
+    }
+    else
+    {
+        for (uint16_t i = 0; i < output.size(); i++)
+        {
+            output.setLeft(i, 0.0f);
+            output.setRight(i, 0.0f);
+        }
+    }
     bypass_->endBlock(output);
 }
 
-// Per-Sample processing for non-block processing
-void Processor::processLeftRight(dsp::ConstAudioBuffer input, dsp::AudioBuffer output)
+// While parked_ is set, thread mode owns engine_ and PendSV does not call it.
+void Processor::followPark()
 {
-
-    for(uint16_t i = 0; i < input.size(); i++)
+    if (parkRequest_)
     {
-        float left = input.leftAt(i);
-        float right = input.rightAt(i);
-
-        output.setLeft(i, left);
-        output.setRight(i,  right);
+        bypass_->setEngineParked(true);
+        // The wet fade ends with a block, so the engine stops from the next one.
+        if (!parked_ && bypass_->wetSilent()) { parked_ = true; }
+        return;
     }
+    if (!parked_) { return; }
 
+    __DMB();    // acquire: pairs with resume()
+    parked_ = false;
+    bypass_->setEngineParked(false);
+    applyEngineControls(0u);
+    updateBypass();
 }
 
 void Processor::updateAlgorithmParams(uint32_t blockCycles)
 {
-    // map and assign algorithm parameters
-    // e.g. filter_cutoff = 20000.0f * activeControls_.params[0];
-
     const ProcessorControls& c = activeControls_;
-    if (c.engine != engine_ && c.engine == ENGINE_TEST_DELAY) { testDelay_.reset(); }
-    engine_ = (c.engine < ENGINE_COUNT) ? c.engine : static_cast<uint8_t>(ENGINE_PASSTHROUGH);
-
     tempo_.update(c.tempoHz, c.tempoPhase, c.tempoEdgeCycles, c.frameSeq, blockCycles);
-    if (engine_ == ENGINE_TEST_DELAY)
-    {
-        testDelay_.setControls(c.params, c.discrete, c.tempoHz, (c.runFlags & RUN_FLAG_ENGAGED) != 0u);
-    }
 
-    const uint8_t blendParam = kEngineManifest[engine_].blendParam;
-    const float blend = (blendParam == ENGINE_PARAM_NONE) ? BypassController::kNoBlend
-                                                          : c.params[blendParam];
-    bypass_->setControls(c.runFlags, blend);
+    // The first set only takes the baseline, so a restarted H7 sees no stale events.
+    const uint16_t edges = togglesSeen_ ? static_cast<uint16_t>(c.eventToggles ^ lastToggles_) : 0u;
+    lastToggles_ = c.eventToggles;
+    togglesSeen_ = true;
+
+    applyEngineControls(edges);
+    updateBypass();
+}
+
+// A set reaches the engine only when it was applied for that engine, so a new
+// preset's values never drive the engine it replaces (plan §4.1).
+void Processor::applyEngineControls(uint16_t edges)
+{
+    const ProcessorControls& c = activeControls_;
+    if (parked_ || engine_ == nullptr || c.engineId != engine_->id()) { return; }
+
+    EngineControls controls;
+    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls.params[i] = c.params[i]; }
+    controls.discrete   = c.discrete;
+    controls.eventEdges = edges;
+    engine_->setControls(controls);
+    blend_ = blendOf(*engine_, controls);
+}
+
+void Processor::updateBypass()
+{
+    bypass_->setControls(activeControls_.runFlags, blend_);
 }
 
 bool Processor::pushControls(const ProcessorControls &controls)

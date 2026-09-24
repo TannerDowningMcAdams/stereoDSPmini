@@ -4,6 +4,7 @@
 #include "bypass_controller.hpp"
 #include "g0_spi.hpp"
 #include "g0_bootloader.hpp"
+#include "engine_host.hpp"
 #include "processor.hpp"
 #include <cstdint>
 #ifdef __cplusplus
@@ -21,8 +22,10 @@ public:
     ~System() = default;
 
     void init();
-    // Thread-mode work, called from the App_Run() loop.
+    // Thread-mode work, called from the App_Run() loop: SAI recovery and engine switching.
     void poll();
+    // PendSV, pended by the audio DMA callbacks: one audio block.
+    void audioPendSV()                  { audio_.serviceBlock(); }
 
     inline void audioRxHalfComplete()   { audio_.rxHalfComplete(); }
     inline void audioRxComplete()       { audio_.rxComplete(); }
@@ -56,12 +59,12 @@ private:
 
     BypassController bypass_;
     Processor processor_;
+    EngineHost engineHost_;
 
     G0State updateG0();
     bool g0Confirmed() const;
     bool waitForG0(uint32_t windowMs, uint32_t framesBefore);
     bool waitForG0Silent(uint32_t windowMs);
-    static ProcessorControls toProcessorControls(const G0Spi::Controls& controls, uint8_t engine,
-                                                 uint32_t edgeCycles);
+    static ProcessorControls toProcessorControls(const G0Spi::Controls& controls, uint32_t edgeCycles);
 
 } ;

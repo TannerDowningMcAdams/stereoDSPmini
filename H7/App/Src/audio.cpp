@@ -62,6 +62,12 @@ void Audio::serviceBlock()
     const int32_t* __restrict src = audioAdcDataDMA_ + (half * kHalfWords);
     int32_t*       __restrict dst = audioDacDataDMA_ + (half * kHalfWords);
 
+    if (!dspEnabled_)
+    {
+        std::fill(dst, dst + kHalfWords, 0);
+        return;
+    }
+
     inputBuffer_.fromInterleaved(src, kInt24ToFloat, kDmaPadBits);
 
     if (processor_ != nullptr) { processor_->processAudioBlock(inputBuffer_, outputBuffer_, cycles); }
@@ -90,6 +96,7 @@ void Audio::signalBlock()
     const uint32_t n = blockCount_ + 1u;
     if ((n - consumedCount_) > 1u) { blockOverruns_ = blockOverruns_ + 1u; }
     blockCount_ = n;
+    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
 }
 
 void Audio::resetCodec()
@@ -164,8 +171,16 @@ void Audio::serviceErrors()
     if (restartPending_ == 0u) { return; }
     restartPending_ = 0u;
 
+    // Thread mode runs only while no block is live in PendSV, so shutting the gate
+    // here is enough.
+    dspEnabled_ = false;
+    __DMB();
+    const Status status = restart();
+    __DMB();
+    dspEnabled_ = true;
+
     // A failed restart raises no callback, so re-flag it for the next pass.
-    if (restart() == Status::OK) { status_ = Status::OK; }
+    if (status == Status::OK) { status_ = Status::OK; }
     else
     {
         status_ = Status::ERROR;

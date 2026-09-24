@@ -42,15 +42,20 @@ void System::init()
     // Unengaged from here: relays off, VCA at -100 dB.
     bypass_.init(bypassConfig);
     // Defaults are pushed before SPI starts: pushControls() assumes one producer,
-    // and after this the SPI ISR is the only one.
+    // and after this the SPI ISR is the only one. They carry no engine params: the
+    // engine host gives the default engine its own.
     processor_.init({ Audio::kSampleRate, SystemCoreClock, &bypass_ });
-    processor_.pushControls(toProcessorControls(G0Spi::defaultControls(), ENGINE_PASSTHROUGH, 0u));
+    processor_.pushControls(toProcessorControls(G0Spi::defaultControls(), 0u));
     g0Spi_.init(spiConfig);
+    engineHost_.init({ &g0Spi_, &processor_, Audio::kSampleRate });
 #if STEREODSPMINI_G0_IMAGE
     g0State_ = updateG0();
 #else
     g0State_ = waitForG0(kG0LinkWindowMs, 0u) ? G0State::UpToDate : G0State::Absent;
 #endif
+    // Blocks run in PendSV, below every interrupt, so the G0 link's CS timestamp and
+    // re-arm are never held up by DSP.
+    HAL_NVIC_SetPriority(PendSV_IRQn, 15, 0);
     // Processor is ready before the first block can be published.
     audio_.setProcessor(&processor_);
     audio_.init(audioConfig);
@@ -102,7 +107,7 @@ bool System::waitForG0Silent(uint32_t windowMs)
 void System::poll()
 {
     audio_.serviceErrors();
-    audio_.serviceBlock();
+    engineHost_.poll();
 }
 
 #if STEREODSPMINI_G0_IMAGE
@@ -168,20 +173,19 @@ void System::spiFrameEnd()
     if (!g0Spi_.onFrameEnd() || !g0Confirmed()) { return; }
 
     // A refused set is dropped, not retried: the next frame 1 ms later is fresher.
-    (void) processor_.pushControls(toProcessorControls(g0Spi_.controls(), g0Spi_.activeEngine(),
-                                                       g0Spi_.frameEdgeCycles()));
+    (void) processor_.pushControls(toProcessorControls(g0Spi_.controls(), g0Spi_.frameEdgeCycles()));
 }
 
-ProcessorControls System::toProcessorControls(const G0Spi::Controls& controls, uint8_t engine,
-                                              uint32_t edgeCycles)
+ProcessorControls System::toProcessorControls(const G0Spi::Controls& controls, uint32_t edgeCycles)
 {
     ProcessorControls out;
-    out.engine = engine;
+    out.engineId = controls.engineId;
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++)
     {
         out.params[i] = controls.param[i] * (1.0f / 65535.0f);
     }
     out.discrete   = controls.discrete;
+    out.eventToggles = controls.eventToggles;
     out.runFlags   = controls.runFlags;
     out.tempoHz    = controls.tempoHz;
     out.tempoPhase = controls.tempoPhase;

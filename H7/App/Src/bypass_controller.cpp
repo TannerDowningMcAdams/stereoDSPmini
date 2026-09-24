@@ -43,13 +43,21 @@ void BypassController::setControls(uint16_t runFlags, float blend)
     updateTargets();
 }
 
+void BypassController::setEngineParked(bool parked)
+{
+    if (parked == parked_) { return; }
+    parked_ = parked;
+    updateTargets();
+}
+
 void BypassController::updateTargets()
 {
     // Bypassed, the engine input fades out and its output stays up, so trails ring
-    // out. In true bypass the relays take both out of the path.
-    const float dry = engaged_ ? dryEngaged_ : 1.0f;
+    // out. In true bypass the relays take both out of the path. Parked, only the dry
+    // path is heard.
+    const float dry = (engaged_ && !parked_) ? dryEngaged_ : 1.0f;
     input_.target      = (engaged_ && inputHold_ == 0u) ? 1.0f : 0.0f;
-    wet_.target        = engaged_ ? wetEngaged_ : 1.0f;
+    wet_.target        = parked_ ? 0.0f : (engaged_ ? wetEngaged_ : 1.0f);
     vca_.target        = analogDry_ ? dry : 0.0f;
     digitalDry_.target = analogDry_ ? 0.0f : dry;
 }

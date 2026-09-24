@@ -6,7 +6,7 @@
 #include <cstdint>
 
 // Owns the relays and the dry VCA. Boots unengaged: relays off, which is true bypass.
-// Runs in the audio thread once per block, around the engine, and ramps every gain
+// Runs in the audio context once per block, around the engine, and ramps every gain
 // across the block so no change steps.
 //
 // True bypass mutes the output around relay switching. Trails bypass keeps the relays
@@ -31,8 +31,15 @@ public:
 
     void init(const Config& config);
 
-    // Audio thread, when a new control set lands. blend: 0 = dry, 1 = wet, or kNoBlend.
+    // Audio context, when a new control set lands. blend: 0 = dry, 1 = wet, or kNoBlend.
     void setControls(uint16_t runFlags, float blend);
+
+    // Audio context, every block while an engine switch wants the engine parked. The
+    // wet path fades to zero and the dry path comes up to unity, so the player hears
+    // the dry signal while the engine is swapped.
+    void setEngineParked(bool parked);
+    // The wet path has faded out: the engine's output no longer reaches the mix.
+    bool wetSilent() const { return wet_.value <= 0.0f; }
 
     // Before the engine: the input it should process (mono copy, input fade).
     dsp::ConstAudioBuffer beginBlock(dsp::ConstAudioBuffer input);
@@ -80,6 +87,7 @@ private:
     bool trails_    = false;
     bool analogDry_ = false;
     bool stereoIn_  = true;
+    bool parked_    = false;
     float wetEngaged_ = 1.0f;
     float dryEngaged_ = 0.0f;
 

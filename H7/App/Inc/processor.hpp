@@ -2,17 +2,18 @@
 
 #include "audio_buffer.hpp"
 #include "bypass_controller.hpp"
+#include "engine.hpp"
 #include "tempo_follower.hpp"
-#include "test_delay.hpp"
 using dsp::AudioBuffer;
 
 #include <cstdint>
 
 struct ProcessorControls{
 
-    uint8_t engine;         // ENGINE_*, the active engine
-    float params[8];        // 0..1, meaning set by the engine manifest
-    uint16_t discrete;      // field layout per engine_manifest.h
+    uint16_t engineId;      // the engine params and discrete belong to; ENGINE_ID_NONE = none
+    float params[8];        // 0..1, meaning set by the engine
+    uint16_t discrete;      // fields per the engine's EngineInfo
+    uint16_t eventToggles;  // each G0 event flips its bit
     uint16_t runFlags;      // RUN_FLAG_*, for the bypass controller
     float tempoHz;
     uint16_t tempoPhase;
@@ -21,6 +22,9 @@ struct ProcessorControls{
 
 };
 
+// Runs every audio block in PendSV: tempo follower, bypass controller and the active
+// engine. The engine host swaps the engine from thread mode through park(), install()
+// and resume().
 class Processor {
 public:
 
@@ -34,27 +38,42 @@ public:
     Processor() = default;
     ~Processor() = default;
 
-    //enum class AudioStatus { BUSY, READY, ERROR };
-
     void init(const Config& config);
 
-    // blockCycles: cycle count when the block's DMA half was published.
+    // PendSV. blockCycles: cycle count when the block's DMA half was published.
     void processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer output, uint32_t blockCycles);
-    void processLeftRight(dsp::ConstAudioBuffer input, dsp::AudioBuffer output);
     // Called from the SPI ISR. Refused while the previous set is unconsumed, so the
     // payload has one owner at a time; the caller simply tries again next tick.
     bool pushControls(const ProcessorControls &controls);
 
+    // Thread mode. park() fades the engine out; once parked() is true, PendSV no longer
+    // calls it, and install() may replace it and give it its first controls. resume()
+    // fades the installed engine in. Before audio starts, install() needs no park.
+    void park()         { parkRequest_ = true; }
+    bool parked() const { return parked_; }
+    void install(Engine* engine, const EngineControls& controls);
+    void resume();
+
 private:
 
-    uint32_t sampleRate_;
-    float samplePeriod_;
     BypassController* bypass_ = nullptr;
     TempoFollower tempo_;
-    TestDelay testDelay_;
-    uint8_t engine_ = 0;
+    // Written by thread mode only while parked_ is set, or before audio starts.
+    Engine* engine_ = nullptr;
+    // The blend param in the controls the engine last took, or BypassController::kNoBlend.
+    float   blend_  = BypassController::kNoBlend;
+
+    // parkRequest_ has one writer, thread mode; parked_ has one writer, PendSV.
+    volatile bool parkRequest_ = false;
+    volatile bool parked_      = false;
+
+    uint16_t lastToggles_ = 0;
+    bool     togglesSeen_ = false;
 
     void updateAlgorithmParams(uint32_t blockCycles);
+    void updateBypass();
+    void applyEngineControls(uint16_t edges);
+    void followPark();
     // pendingControls_ belongs to pushControls() while the flag is clear, and to
     // processAudioBlock() while it is set.
     ProcessorControls activeControls_;

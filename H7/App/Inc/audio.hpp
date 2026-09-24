@@ -40,12 +40,13 @@ public:
     void init(const Config& config);
     Status status() const { return status_; }
 
-    // Thread mode, from the App_Run() loop: processes the newest block if one is
-    // pending. The ISR only publishes; all DSP runs here.
+    // PendSV, at the lowest priority: processes the newest block if one is pending.
+    // The DMA callbacks only publish the half and pend PendSV; all DSP runs here.
     void serviceBlock();
 
     // Thread mode only: restarts the SAI if an error stopped it. The HAL calls
-    // involved poll SysTick, which cannot preempt the priority-0 DMA IRQs.
+    // involved poll SysTick, which cannot preempt the priority-0 DMA IRQs. PendSV
+    // only silences its half while the restart runs.
     void serviceErrors();
 
     // Not masked at the DMA: HAL completes a stream abort on its TC interrupt,
@@ -84,7 +85,7 @@ private:
     static volatile uint32_t offset_;
 
     // blockCount_ and blockOverruns_ are written by the ISR, consumedCount_ by
-    // serviceBlock(). Their difference is how far the DSP is behind.
+    // serviceBlock() and restart(). Their difference is how far the DSP is behind.
     volatile uint32_t blockCount_    = 0;
     volatile uint32_t consumedCount_ = 0;
     volatile uint32_t blockOverruns_ = 0;
@@ -114,6 +115,9 @@ private:
     volatile uint32_t errorCount_     = 0;
     // Set by the ISR when an error stopped a transfer; consumed by serviceErrors().
     volatile uint32_t restartPending_ = 0;
+    // Written by thread mode only. Shut while restart() moves the buffers, so a block
+    // pended before the fault does not run under it.
+    volatile bool     dspEnabled_     = true;
 
     // Only OVR/UDR leave the transfer running; every other error stops a stream.
     static constexpr uint32_t kNonFatalErrors = HAL_SAI_ERROR_OVR | HAL_SAI_ERROR_UDR;
