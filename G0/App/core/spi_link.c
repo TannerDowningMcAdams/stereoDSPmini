@@ -13,9 +13,9 @@
 
 // TIM1 period between frame starts, in timebase microseconds (both timers count at
 // 1 MHz from the same clock). The transfer time is measured; this seeds it with
-// 25 words at 4 Mbit/s.
+// 33 words at 4 Mbit/s.
 #define FRAME_PERIOD_US     1000u
-#define FRAME_TRANSFER_US   100u
+#define FRAME_TRANSFER_US   132u
 
 // The packets are packed (alignment 1); the SPI DMA moves halfwords.
 static G0ToH7Packet txBuffers[2] __attribute__((aligned(4)));

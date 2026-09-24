@@ -11,7 +11,6 @@
 #define BOARD_MAX_SWITCHES  6u
 #define BOARD_MAX_PWM_LEDS  2u
 #define BOARD_MAX_GPIO_LEDS 4u
-#define BOARD_MAX_ENGINES   16u
 
 typedef enum {
     SWITCH_ROLE_ON,
@@ -49,7 +48,6 @@ typedef struct {
     const BoardSwitch*  switches;  uint8_t numSwitches;
     const BoardPwmLed*  pwmLeds;   uint8_t numPwmLeds;
     const BoardGpioLed* gpioLeds;  uint8_t numGpioLeds;    // [0] is bit 0
-    const uint8_t*      engines;   uint8_t numEngines;     // ENGINE_* ids, in selection order
 } BoardConfig;
 
 // Defined in exactly one boards/board_*.c.

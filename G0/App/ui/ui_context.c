@@ -1,7 +1,7 @@
 #include "ui_context.h"
 #include "board.h"
 #include "boot_state.h"
-#include "engine_manifest.h"
+#include "engine_link.h"
 #include "gesture.h"
 #include "led.h"
 #include "pot.h"
@@ -35,29 +35,24 @@ static uint32_t  blinkStartUs;
 static bool      tapThisTick;
 
 // Live state, sent every frame.
-static uint8_t  engine;
+static uint16_t engineId;           // wanted engine; ENGINE_ID_NONE until the H7 names one
 static uint8_t  presetIndex;
 static uint16_t param[SPI_PARAM_COUNT];
 static uint16_t discrete;
 static uint16_t ownerMask;
 
-static const EngineManifest* manifest(void)
-{
-    return &kEngineManifest[engine];
-}
+// Engine requests (plan §4.4). A query asks the H7 for the id at a registry index.
+// A defaults request asks it for the wanted engine's defaults, which the G0 adopts
+// from the echo; until then the H7 ignores param[] and discrete.
+static uint8_t  engineQuery;
+static bool     queryPending;
+static uint8_t  defaultsSeq;
+static bool     defaultsPending;
 
-static uint8_t fieldGet(uint8_t field)
-{
-    const DiscreteField* f = &manifest()->field[field];
-    return (uint8_t) ((discrete >> f->offset) & ((1u << f->width) - 1u));
-}
-
-static void fieldSet(uint8_t field, uint8_t value)
-{
-    const DiscreteField* f = &manifest()->field[field];
-    const uint16_t mask = (uint16_t) (((1u << f->width) - 1u) << f->offset);
-    discrete = (uint16_t) ((discrete & ~mask) | ((value << f->offset) & mask));
-}
+// The wanted engine's descriptor, as last echoed while it ran. engineReady: the echo
+// reports it running and the G0 holds its values, so its fields may be edited.
+static uint32_t engineDesc;
+static bool     engineReady;
 
 void uiInit(void)
 {
@@ -66,24 +61,30 @@ void uiInit(void)
     bootDeadline = deadlineSet(BOOT_ECHO_WAIT_MS);
 }
 
-// Cold boot, or a warm reset the H7 cannot restore: manifest defaults, bypassed.
-// The favourite preset replaces the defaults in M4.
+static void requestEngineAt(uint8_t index)
+{
+    engineQuery  = index;
+    queryPending = true;
+}
+
+// Cold boot, or a warm reset the H7 cannot restore: registry index 0 with its
+// defaults, bypassed. The favourite preset replaces this in M4.
 static void enterDefaults(void)
 {
-    engine = kBoard.engines[0];
+    engineId    = ENGINE_ID_NONE;
     presetIndex = 0u;
-    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { param[i] = manifest()->paramDefault[i]; }
-    discrete  = engineDiscreteDefault(manifest());
-    ownerMask = 0u;
-    potRebaseline();
+    ownerMask   = 0u;
+    requestEngineAt(0u);
     context = CONTEXT_BYPASS;
 }
 
 // Warm reset: resume from the state the H7 last applied (plan §4.3).
 static void adoptEcho(const H7ToG0Packet* echo)
 {
-    engine      = echo->activeEngine;
-    presetIndex = echo->presetIndex;
+    engineId        = echo->activeEngine;
+    defaultsSeq     = echo->defaultsSeqEcho;
+    defaultsPending = false;
+    presetIndex     = echo->presetIndex;
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { param[i] = echo->param[i]; }
     discrete    = echo->discrete;
     ownerMask   = echo->ownerMask;
@@ -107,7 +108,8 @@ static void resolveBoot(void)
     if (bootWasCold()) { enterDefaults(); return; }
 
     const H7ToG0Packet* echo = spiLinkEcho();
-    if (echo != NULL && (echo->h7Flags & H7_FLAG_STATE_VALID) != 0u && echo->activeEngine < ENGINE_COUNT)
+    const uint16_t ready = H7_FLAG_STATE_VALID | H7_FLAG_ENGINE_READY;
+    if (echo != NULL && (echo->h7Flags & ready) == ready)
     {
         adoptEcho(echo);
     }
@@ -117,10 +119,74 @@ static void resolveBoot(void)
     }
 }
 
+// Follows the H7's answers to the engine requests, once per tick.
+static void trackEngine(void)
+{
+    const H7ToG0Packet* echo = spiLinkEcho();
+    engineReady = false;
+    if (echo == NULL) { return; }
+
+    // The registry is fixed, so an answer for this index is current even if it was
+    // sent for an earlier query.
+    if (queryPending && echo->engineQueryEcho == engineQuery)
+    {
+        queryPending = false;
+        if (echo->engineQueryId != ENGINE_ID_NONE)
+        {
+            engineId = echo->engineQueryId;
+            defaultsSeq++;
+            defaultsPending = true;
+        }
+    }
+
+    // An id the H7 does not have, e.g. from a preset stored under older firmware:
+    // keep the engine it runs.
+    if ((echo->h7Flags & H7_FLAG_ENGINE_UNKNOWN) != 0u && !queryPending && echo->activeEngine != engineId)
+    {
+        engineId        = echo->activeEngine;
+        defaultsPending = false;
+    }
+
+    const bool active = echo->activeEngine == engineId && (echo->h7Flags & H7_FLAG_ENGINE_READY) != 0u;
+    if (!active) { return; }
+    engineDesc = echo->engineDesc;
+
+    if (defaultsPending)
+    {
+        if (echo->defaultsSeqEcho != defaultsSeq) { return; }
+        for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { param[i] = echo->param[i]; }
+        discrete        = echo->discrete;
+        ownerMask       = 0u;
+        defaultsPending = false;
+        potRebaseline();
+    }
+    engineReady = true;
+}
+
+// Until ENGINE select (M4): the next engine in the H7's registry, with its defaults.
+static void stepEngine(void)
+{
+    const H7ToG0Packet* echo = spiLinkEcho();
+    if (echo == NULL || !engineReady || echo->engineCount == 0u) { return; }
+    uint8_t next = (uint8_t) (echo->activeIndex + 1u);
+    if (next >= echo->engineCount) { next = 0u; }
+    requestEngineAt(next);
+}
+
+static uint8_t fieldGet(uint8_t field)
+{
+    return engineFieldGet(engineDesc, discrete, field);
+}
+
+static void fieldSet(uint8_t field, uint8_t value)
+{
+    discrete = engineFieldSet(engineDesc, discrete, field, value);
+}
+
 static void stepMode(int8_t direction)
 {
-    const uint8_t options = manifest()->modeOptions;
-    if (options == 0u) { return; }
+    const uint8_t options = engineDescModeOptions(engineDesc);
+    if (!engineReady || options == 0u) { return; }
     const uint8_t value = fieldGet(ENGINE_MODE_FIELD);
     // Clamped, so a held switch always lands at a known end.
     if (direction > 0 && value + 1u < options) { fieldSet(ENGINE_MODE_FIELD, (uint8_t) (value + 1u)); }
@@ -135,22 +201,27 @@ static void handleGesture(const Gesture* gesture)
         return;
     }
 
-    // CONTEXT_RUN. ON, AUX and both holds are reserved for RECALL and STORE (M4).
+    // CONTEXT_RUN. ON and both holds are reserved for RECALL and STORE (M4).
+    const uint8_t auxRole = engineDescAuxRole(engineDesc);
     switch (gesture->type)
     {
         case GESTURE_ON_SHORT:
             context = CONTEXT_BYPASS;
             break;
         case GESTURE_AUX_SHORT:
-            if (manifest()->auxRole == AUX_ROLE_TAP)
+            if (auxRole == AUX_ROLE_TAP)
             {
                 tempoTap(gesture->pressUs);
                 tapThisTick = true;
             }
-            else if (manifest()->auxRole == AUX_ROLE_TOGGLE)
+            else if (auxRole == AUX_ROLE_TOGGLE && engineReady)
             {
-                fieldSet(manifest()->auxField, (uint8_t) (fieldGet(manifest()->auxField) ^ 1u));
+                const uint8_t field = engineDescAuxField(engineDesc);
+                fieldSet(field, (uint8_t) (fieldGet(field) ^ 1u));
             }
+            break;
+        case GESTURE_AUX_HOLD:
+            stepEngine();
             break;
         case GESTURE_MODE_UP:
             stepMode(1);
@@ -201,13 +272,22 @@ static void renderLeds(void)
     // tempo, in BYPASS too, whenever the engine uses one and one is set.
     const bool beat = beatLit();
     bool auxLit;
-    if (run && manifest()->auxRole == AUX_ROLE_TOGGLE) { auxLit = fieldGet(manifest()->auxField) != 0u; }
-    else                                               { auxLit = manifest()->usesTempo && beat; }
+    if (run && engineDescAuxRole(engineDesc) == AUX_ROLE_TOGGLE)
+    {
+        auxLit = fieldGet(engineDescAuxField(engineDesc)) != 0u;
+    }
+    else
+    {
+        auxLit = engineDescUsesTempo(engineDesc) && beat;
+    }
     ledPwmSet(onLed, run ? &on : &off);
     ledPwmSet(auxLed, auxLit ? &on : &off);
 
     uint8_t small = 0u;
-    if (run && manifest()->modeOptions > 0u) { small = (uint8_t) (1u << fieldGet(ENGINE_MODE_FIELD)); }
+    if (run && engineReady && engineDescModeOptions(engineDesc) > 0u)
+    {
+        small = (uint8_t) (1u << fieldGet(ENGINE_MODE_FIELD));
+    }
     ledGpioSet(small);
 }
 
@@ -218,6 +298,8 @@ void uiTick(void)
         resolveBoot();
         if (context == CONTEXT_BOOT) { return; }
     }
+
+    trackEngine();
 
     Gesture gesture;
     const uint32_t nowUs = timebaseNowUs();
@@ -234,8 +316,11 @@ bool uiFillFrame(G0ToH7Packet* tx)
     const uint32_t period = tempoPeriodUs();
     tx->runFlags    = (uint16_t) (DEFAULT_RUN_FLAGS | ((context == CONTEXT_RUN) ? RUN_FLAG_ENGAGED : 0u) |
                                   (tempoSource() << RUN_FLAG_TEMPO_SRC_SHIFT));
-    tx->engine      = engine;
+    tx->engineId    = engineId;
     tx->presetIndex = presetIndex;
+    tx->engineQuery = engineQuery;
+    tx->defaultsSeq = defaultsSeq;
+    tx->g0Flags     = defaultsPending ? G0_FLAG_DEFAULTS_PENDING : 0u;
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { tx->param[i] = param[i]; }
     tx->discrete     = discrete;
     tx->eventToggles = 0u;

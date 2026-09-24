@@ -1,5 +1,4 @@
 #include "board.h"
-#include "engine_manifest.h"
 #include "main.h"
 
 // Scan order follows the ADC ranks in CubeMX: channels 8, 9, 10, 7, 11.
@@ -33,22 +32,14 @@ static const BoardGpioLed gpioLeds[] = {
     { LED_3_GPIO_Port, LED_3_Pin },
 };
 
-// engines[0] is what a cold boot loads until presets exist (M4).
-static const uint8_t engines[] = {
-    ENGINE_TEST_DELAY,
-    ENGINE_PASSTHROUGH,
-};
-
 _Static_assert(sizeof(pots) / sizeof(pots[0]) <= BOARD_MAX_POTS, "too many pots");
 _Static_assert(sizeof(switches) / sizeof(switches[0]) <= BOARD_MAX_SWITCHES, "too many switches");
 _Static_assert(sizeof(pwmLeds) / sizeof(pwmLeds[0]) <= BOARD_MAX_PWM_LEDS, "too many PWM LEDs");
 _Static_assert(sizeof(gpioLeds) / sizeof(gpioLeds[0]) <= BOARD_MAX_GPIO_LEDS, "too many GPIO LEDs");
-_Static_assert(sizeof(engines) / sizeof(engines[0]) <= BOARD_MAX_ENGINES, "too many engines");
 
 const BoardConfig kBoard = {
     pots,     sizeof(pots) / sizeof(pots[0]),
     switches, sizeof(switches) / sizeof(switches[0]),
     pwmLeds,  sizeof(pwmLeds) / sizeof(pwmLeds[0]),
     gpioLeds, sizeof(gpioLeds) / sizeof(gpioLeds[0]),
-    engines,  sizeof(engines) / sizeof(engines[0]),
 };
