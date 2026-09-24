@@ -22,13 +22,18 @@ void BypassController::init(const Config& config)
     vca_.step        = fadeStep;
     mute_.step       = 1.0f / blocksFor(kMuteMs, config.sampleRate);
     settleBlocks_    = blocksFor(kSettleMs, config.sampleRate);
+    inputHoldBlocks_ = blocksFor(kInputHoldMs, config.sampleRate);
     drainBlocks_     = blocksFor(kDrainMs, config.sampleRate);
     updateTargets();
 }
 
 void BypassController::setControls(uint16_t runFlags, float blend)
 {
+    const bool wasEngaged = engaged_;
     engaged_   = (runFlags & RUN_FLAG_ENGAGED) != 0u;
+    // The engine input stays at zero through relay operation and settling, then fades in.
+    if (engaged_ && !wasEngaged) { inputHold_ = inputHoldBlocks_; }
+    if (!engaged_)               { inputHold_ = 0u; }
     trails_    = (runFlags & RUN_FLAG_TRAILS) != 0u;
     analogDry_ = (runFlags & RUN_FLAG_ANALOG_DRY) != 0u;
     stereoIn_  = (runFlags & RUN_FLAG_STEREO_IN) != 0u;
@@ -43,7 +48,7 @@ void BypassController::updateTargets()
     // Bypassed, the engine input fades out and its output stays up, so trails ring
     // out. In true bypass the relays take both out of the path.
     const float dry = engaged_ ? dryEngaged_ : 1.0f;
-    input_.target      = engaged_ ? 1.0f : 0.0f;
+    input_.target      = (engaged_ && inputHold_ == 0u) ? 1.0f : 0.0f;
     wet_.target        = engaged_ ? wetEngaged_ : 1.0f;
     vca_.target        = analogDry_ ? dry : 0.0f;
     digitalDry_.target = analogDry_ ? 0.0f : dry;
@@ -94,6 +99,12 @@ dsp::ConstAudioBuffer BypassController::beginBlock(dsp::ConstAudioBuffer input)
     // Mono in: the right input is ignored and the left feeds both sides.
     const float* right = stereoIn_ ? input.right() : input.left();
     dryInput_ = dsp::ConstAudioBuffer(input.left(), right, input.size());
+
+    if (inputHold_ > 0u)
+    {
+        inputHold_--;
+        if (inputHold_ == 0u) { updateTargets(); }
+    }
 
     const uint16_t n = input.size();
     const float start = input_.advance();

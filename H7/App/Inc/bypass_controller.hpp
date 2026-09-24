@@ -62,6 +62,7 @@ private:
     enum class RelayPhase : uint8_t { Off, Settling, On, Releasing, Draining };
 
     static constexpr float kFadeMs   = 20.0f;   // input fade, wet and dry levels, VCA
+    static constexpr float kInputHoldMs = 40.0f; // engine input held at zero on engage, before its fade
     static constexpr float kMuteMs   = 5.0f;    // output mute around relay switching
     static constexpr float kSettleMs = 10.0f;   // relay operate and bounce
     static constexpr float kDrainMs  = 3.0f;    // muted output still in the DMA and codec
@@ -72,6 +73,8 @@ private:
     uint16_t      settleBlocks_ = 0;
     uint16_t      drainBlocks_  = 0;
     uint16_t      countdown_    = 0;
+    uint16_t      inputHoldBlocks_ = 0;
+    uint16_t      inputHold_       = 0;     // blocks left before the input fades in
 
     bool engaged_   = false;
     bool trails_    = false;
