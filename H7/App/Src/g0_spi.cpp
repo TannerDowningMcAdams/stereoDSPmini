@@ -12,14 +12,9 @@ extern "C" {
 UNCACHED_RAM G0ToH7Packet G0Spi::rxPacketDMA_;
 UNCACHED_RAM H7ToG0Packet G0Spi::txPacketDMA_;
 
+// The DWT cycle counter stamps each CS edge; System::init() starts it.
 void G0Spi::init(const Config& config)
 {
-    // The cycle counter timestamps each CS edge. The H7's DWT is locked until LAR is written.
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    DWT->LAR = 0xC5ACCE55u;
-    DWT->CYCCNT = 0u;
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-
     controls_ = defaultControls();
 
     // Not armed here: the first CS rising edge does it, on a packet boundary.
@@ -72,9 +67,15 @@ void G0Spi::parse()
     controls_.tempoHz      = rxPacketDMA_.tempoHz;
     controls_.tempoPhase   = rxPacketDMA_.tempoPhase;
     controls_.ownerMask    = rxPacketDMA_.ownerMask;
+    controls_.frameSeq     = rxPacketDMA_.frameSeq;
 
+    const uint8_t engine = rxPacketDMA_.engine;
+    if (engine != activeEngine_ && engine < ENGINE_COUNT && !kEngineManifest[engine].needsLoad)
+    {
+        activeEngine_ = engine;
+    }
     // A new preset's values must not drive the engine it replaces (plan §4.1).
-    if (rxPacketDMA_.engine != activeEngine_) { return; }
+    if (engine != activeEngine_) { return; }
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls_.param[i] = rxPacketDMA_.param[i]; }
     controls_.discrete = rxPacketDMA_.discrete;
 }
@@ -121,15 +122,16 @@ void G0Spi::spiErrorHandler()
     errorCount_ = errorCount_ + 1u;
 }
 
-void G0Spi::onFrameEnd()
+bool G0Spi::onFrameEnd()
 {
     const uint32_t edge = DWT->CYCCNT;
 
     // EXTI is live from MX_GPIO_Init, before init() runs. Nothing is armed until
     // config_ is set.
-    if (config_.spi == nullptr) { return; }
+    if (config_.spi == nullptr) { return false; }
     frameCount_ = frameCount_ + 1u;
-    if (frameValid_)
+    const bool valid = frameValid_;
+    if (valid)
     {
         frameEdgeCycles_ = edge;
         frameValid_      = false;
@@ -147,4 +149,5 @@ void G0Spi::onFrameEnd()
     buildTx();
     // A failed arm needs no retry logic: the next frame end tries again.
     status_ = arm();
+    return valid;
 }

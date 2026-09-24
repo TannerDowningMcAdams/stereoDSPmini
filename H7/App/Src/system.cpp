@@ -32,12 +32,19 @@ void System::init()
                                               { CODEC_NRST_GPIO_Port, CODEC_NRST_Pin } };
     static_assert(Audio::kBlockSize <= BypassController::kMaxBlockSize, "bypass scratch too small");
 
+    // The cycle counter stamps CS edges and audio blocks for the tempo phase. The
+    // H7's DWT is locked until LAR is written.
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->LAR = 0xC5ACCE55u;
+    DWT->CYCCNT = 0u;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
     // Unengaged from here: relays off, VCA at -100 dB.
     bypass_.init(bypassConfig);
     // Defaults are pushed before SPI starts: pushControls() assumes one producer,
     // and after this the SPI ISR is the only one.
-    processor_.init({ Audio::kSampleRate, &bypass_ });
-    processor_.pushControls(toProcessorControls(G0Spi::defaultControls()));
+    processor_.init({ Audio::kSampleRate, SystemCoreClock, &bypass_ });
+    processor_.pushControls(toProcessorControls(G0Spi::defaultControls(), ENGINE_PASSTHROUGH, 0u));
     g0Spi_.init(spiConfig);
 #if STEREODSPMINI_G0_IMAGE
     g0State_ = updateG0();
@@ -152,15 +159,24 @@ void System::spiTxRxComplete()
     {
         g0State_ = G0State::UpToDate;
     }
-    if (!g0Confirmed()) { return; }
-
-    // A refused set is dropped, not retried: the next frame 1 ms later is fresher.
-    (void) processor_.pushControls(toProcessorControls(g0Spi_.controls()));
 }
 
-ProcessorControls System::toProcessorControls(const G0Spi::Controls& controls)
+// EXTI on the G0's CS rising edge. Controls go to the processor here rather than on
+// SPI completion, so they carry the edge their tempo phase refers to.
+void System::spiFrameEnd()
+{
+    if (!g0Spi_.onFrameEnd() || !g0Confirmed()) { return; }
+
+    // A refused set is dropped, not retried: the next frame 1 ms later is fresher.
+    (void) processor_.pushControls(toProcessorControls(g0Spi_.controls(), g0Spi_.activeEngine(),
+                                                       g0Spi_.frameEdgeCycles()));
+}
+
+ProcessorControls System::toProcessorControls(const G0Spi::Controls& controls, uint8_t engine,
+                                              uint32_t edgeCycles)
 {
     ProcessorControls out;
+    out.engine = engine;
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++)
     {
         out.params[i] = controls.param[i] * (1.0f / 65535.0f);
@@ -169,5 +185,7 @@ ProcessorControls System::toProcessorControls(const G0Spi::Controls& controls)
     out.runFlags   = controls.runFlags;
     out.tempoHz    = controls.tempoHz;
     out.tempoPhase = controls.tempoPhase;
+    out.tempoEdgeCycles = edgeCycles;
+    out.frameSeq   = controls.frameSeq;
     return out;
 }

@@ -35,6 +35,7 @@ public:
         float    tempoHz;
         uint16_t tempoPhase;
         uint16_t ownerMask;
+        uint16_t frameSeq;
     };
 
     G0Spi() = default;
@@ -52,8 +53,9 @@ public:
     // SPI ISR: latch the error. The next frame end re-arms, as it always does.
     void spiErrorHandler();
     // EXTI ISR on the G0's CS rising edge. The bus is idle until the next packet,
-    // so this is the only place a transfer is ever armed.
-    void onFrameEnd();
+    // so this is the only place a transfer is ever armed. True when the edge ended a
+    // valid frame: controls() is then complete, and frameEdgeCycles() is its edge.
+    bool onFrameEnd();
 
     // Thread mode. While set, every frame sent to the G0 carries the bootloader magic.
     void setBootloaderRequest(bool request) { bootloaderRequest_ = request; }
@@ -92,7 +94,8 @@ private:
     Config   config_ {};
     Controls controls_ {};
     volatile Status status_ = Status::INIT;
-    // The only engine until the loader (H6) exists.
+    // Follows the G0's engine at once for engines that need no load. The loader (H6)
+    // takes over the rest.
     uint8_t  activeEngine_ = ENGINE_PASSTHROUGH;
 
     // DMA buffers, aligned for halfword DMA although the packets are packed. Not

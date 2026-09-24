@@ -11,23 +11,29 @@ void Processor::init(const Config& config)
     samplePeriod_ = 1.0f / config.sampleRate;
     bypass_ = config.bypass;
 
-    // Initialize DSP, buffers, etc
+    tempo_.init({ config.sampleRate, config.cyclesPerSecond });
+    testDelay_.init({ config.sampleRate });
+    engine_ = ENGINE_PASSTHROUGH;
 }
 
-void Processor::processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer output)
+void Processor::processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer output, uint32_t blockCycles)
 {
     if (controlsReady_)
     {
         __DMB();    // acquire: flag read before payload read
         activeControls_ = pendingControls_;
-        updateAlgorithmParams();
+        updateAlgorithmParams(blockCycles);
         __DMB();    // payload consumed before the channel reopens
         controlsReady_ = false;
     }
 
+    // Runs whatever the engine, so a tempo engine starts on the beat.
+    const int32_t beat = tempo_.advance(input.size());
+
     // Block Processing here, on the input the bypass controller hands over.
     const dsp::ConstAudioBuffer engineInput = bypass_->beginBlock(input);
-    processLeftRight(engineInput, output);
+    if (engine_ == ENGINE_TEST_DELAY) { testDelay_.process(engineInput, output, beat); }
+    else                              { processLeftRight(engineInput, output); }
     bypass_->endBlock(output);
 }
 
@@ -39,23 +45,32 @@ void Processor::processLeftRight(dsp::ConstAudioBuffer input, dsp::AudioBuffer o
     {
         float left = input.leftAt(i);
         float right = input.rightAt(i);
-        
+
         output.setLeft(i, left);
         output.setRight(i,  right);
     }
 
 }
 
-void Processor::updateAlgorithmParams()
+void Processor::updateAlgorithmParams(uint32_t blockCycles)
 {
     // map and assign algorithm parameters
     // e.g. filter_cutoff = 20000.0f * activeControls_.params[0];
 
-    // The only engine until the engine host (H5) selects among them.
-    const uint8_t blendParam = kEngineManifest[ENGINE_PASSTHROUGH].blendParam;
+    const ProcessorControls& c = activeControls_;
+    if (c.engine != engine_ && c.engine == ENGINE_TEST_DELAY) { testDelay_.reset(); }
+    engine_ = (c.engine < ENGINE_COUNT) ? c.engine : static_cast<uint8_t>(ENGINE_PASSTHROUGH);
+
+    tempo_.update(c.tempoHz, c.tempoPhase, c.tempoEdgeCycles, c.frameSeq, blockCycles);
+    if (engine_ == ENGINE_TEST_DELAY)
+    {
+        testDelay_.setControls(c.params, c.discrete, c.tempoHz, (c.runFlags & RUN_FLAG_ENGAGED) != 0u);
+    }
+
+    const uint8_t blendParam = kEngineManifest[engine_].blendParam;
     const float blend = (blendParam == ENGINE_PARAM_NONE) ? BypassController::kNoBlend
-                                                          : activeControls_.params[blendParam];
-    bypass_->setControls(activeControls_.runFlags, blend);
+                                                          : c.params[blendParam];
+    bypass_->setControls(c.runFlags, blend);
 }
 
 bool Processor::pushControls(const ProcessorControls &controls)

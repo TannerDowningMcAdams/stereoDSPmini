@@ -31,7 +31,7 @@ public:
     inline void audioErrorCallback(SAI_HandleTypeDef* hsai) { audio_.audioErrorHandler(hsai); }
     void spiTxRxComplete();
     void spiErrorCallback()             { g0Spi_.spiErrorHandler(); }
-    void spiFrameEnd()                  { g0Spi_.onFrameEnd(); }
+    void spiFrameEnd();
 
 private:
 
@@ -61,6 +61,7 @@ private:
     bool g0Confirmed() const;
     bool waitForG0(uint32_t windowMs, uint32_t framesBefore);
     bool waitForG0Silent(uint32_t windowMs);
-    static ProcessorControls toProcessorControls(const G0Spi::Controls& controls);
+    static ProcessorControls toProcessorControls(const G0Spi::Controls& controls, uint8_t engine,
+                                                 uint32_t edgeCycles);
 
 } ;
