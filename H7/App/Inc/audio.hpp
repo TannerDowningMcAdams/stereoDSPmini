@@ -48,14 +48,15 @@ public:
     // involved poll SysTick, which cannot preempt the priority-0 DMA IRQs.
     void serviceErrors();
 
-    // Both blocks share one clock and frame, so only the master dac block's
-    // callbacks publish the half; the adc block's are deliberately empty.
-    void txHalfComplete();
-    void txComplete();
     // Not masked at the DMA: HAL completes a stream abort on its TC interrupt,
     // so masking TCIE would leave an aborted adc stream unrecoverable.
-    void rxHalfComplete() { }
-    void rxComplete()     { }
+    void txHalfComplete() { }
+    void txComplete()     { }
+
+    // Both blocks share one clock and frame, so only ond block's callbacks publish the half.
+    // The RX interrupt always follows TX, so only RX is used.
+    void rxHalfComplete();
+    void rxComplete();
     // ISR context, from SAI1_IRQn or a DMA stream IRQ. Latches and returns.
     void audioErrorHandler(SAI_HandleTypeDef* hsai);
 

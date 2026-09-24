@@ -69,15 +69,14 @@ void Audio::serviceBlock()
     outputBuffer_.toInterleaved(dst, kFloatToInt24, kDmaWordShift);
 }
 
-// The dac block is the clock master and the only one that publishes, so these
-// set the half for both rings: at half-transfer the DAC half is sent, ADC filled.
-void Audio::txHalfComplete()
+// The adc block is the only one that publishes, so these set the half for both rings.
+void Audio::rxHalfComplete()
 {
     offset_ = 0u;
     signalBlock();
 }
 
-void Audio::txComplete()
+void Audio::rxComplete()
 {
     offset_ = 1u;
     signalBlock();
