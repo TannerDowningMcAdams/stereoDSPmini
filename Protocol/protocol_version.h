@@ -8,7 +8,7 @@
 /* The G0 image version. The H7 compares the running G0's report against this value,
  * which is also the version of the image embedded in the H7, and reprograms the G0
  * on a mismatch. Bump it with every G0 change that should reach the board. */
-#define G0_FW_VERSION     3u
+#define G0_FW_VERSION     4u
 
 #define H7_FW_VERSION     1u
 

@@ -24,11 +24,13 @@ static const BoardPwmLed pwmLeds[] = {
     { TIM16, 1u, SWITCH_ROLE_ON },      // LED_2_PWM, PD0
 };
 
+// Bit 0 is the leftmost LED. The silkscreen numbers them from the back of the
+// board, so LED_6 is on the left.
 static const BoardGpioLed gpioLeds[] = {
-    { LED_3_GPIO_Port, LED_3_Pin },
-    { LED_4_GPIO_Port, LED_4_Pin },
-    { LED_5_GPIO_Port, LED_5_Pin },
     { LED_6_GPIO_Port, LED_6_Pin },
+    { LED_5_GPIO_Port, LED_5_Pin },
+    { LED_4_GPIO_Port, LED_4_Pin },
+    { LED_3_GPIO_Port, LED_3_Pin },
 };
 
 // engines[0] is what a cold boot loads until presets exist (M4).
