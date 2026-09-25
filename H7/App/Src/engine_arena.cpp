@@ -1,9 +1,13 @@
 #include "engine_arena.hpp"
+#include <cstring>
+#if !defined(__GNUC__)
+#include <cstdlib>
+#endif
 
 // The CubeMX linker script has no NOLOAD section for AXI SRAM, so the large arena is
 // declared %nobits: loadable contents would put 448 KB of zeros into the image. The
 // startup code does not clear AXI SRAM, which powers up with random data and ECC words
-// (AN5342), so engines clear what they allocate.
+// (AN5342), so allocate() clears what it hands out.
 #if defined(__arm__)
 #define AXI_NOINIT __attribute__((section(".RAM_AXI0,\"aw\",%nobits@")))
 #else
@@ -13,6 +17,15 @@
 // The fast arena is ordinary .bss, so the linker checks it against RAM with the stack.
 alignas(kArenaAlign) static uint8_t fastStorage[EngineArenas::kFastBytes];
 alignas(kArenaAlign) AXI_NOINIT static uint8_t largeStorage[EngineArenas::kLargeBytes];
+
+void engineMemoryFault()
+{
+#if defined(__GNUC__)
+    __builtin_trap();
+#else
+    std::abort();
+#endif
+}
 
 void Arena::init(uint8_t* base, uint32_t capacity)
 {
@@ -24,9 +37,10 @@ void Arena::init(uint8_t* base, uint32_t capacity)
 void* Arena::allocate(uint32_t bytes)
 {
     const uint32_t size = arenaBytes(bytes);
-    if (size > capacity_ - used_) { return nullptr; }
-    void* block = base_ + used_;
+    if (size > capacity_ - used_) { engineMemoryFault(); }
+    uint8_t* block = base_ + used_;
     used_ += size;
+    std::memset(block, 0, size);
     return block;
 }
 

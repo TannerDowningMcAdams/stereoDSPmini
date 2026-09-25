@@ -14,13 +14,18 @@ constexpr uint32_t arenaBytes(uint32_t bytes)
     return (bytes + kArenaAlign - 1u) & ~(kArenaAlign - 1u);
 }
 
+// Stops at an engine memory fault instead of letting it corrupt memory silently.
+// Address 0 is ITCM RAM on the H7 so a write through a null pointer would not fault.
+[[noreturn]] void engineMemoryFault();
+
 class Arena {
 public:
 
     void init(uint8_t* base, uint32_t capacity);
 
-    // kArenaAlign aligned, not cleared. nullptr when it does not fit, which the
-    // registry's compile-time checks rule out for every engine.
+    // kArenaAlign aligned and zeroed, which also initialises the ECC words of AXI SRAM.
+    // Traps when it does not fit, which the registry's compile-time checks rule out
+    // for every engine that declares its worst case.
     void* allocate(uint32_t bytes);
 
     template <typename T>
