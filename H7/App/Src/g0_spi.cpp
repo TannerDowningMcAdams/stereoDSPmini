@@ -109,25 +109,29 @@ void G0Spi::parse()
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { request_.param[i] = rx.param[i]; }
     request_.discrete        = rx.discrete;
 
-    if (appliedReady_)
-    {
-        __DMB();    // acquire: flag read before payload read
-        for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls_.param[i] = applied_.param[i]; }
-        controls_.discrete = applied_.discrete;
-        defaultsSeqEcho_   = applied_.defaultsSeq;
-        __DMB();    // payload consumed before the channel reopens
-        appliedReady_ = false;
-    }
-
     const EngineStatus& status = engineStatus_[engineStatusIndex_];
     const bool ready = (status.flags & H7_FLAG_ENGINE_READY) != 0u;
     controls_.engineId = ready ? status.activeId : static_cast<uint16_t>(ENGINE_ID_NONE);
 
     // A new preset's values must not drive the engine it replaces (plan §4.1), and
-    // values from before a defaults request must not replace the defaults.
-    if (!ready || rx.engineId != status.activeId || pending) { return; }
+    // values from before a defaults request must not replace the defaults. Applied
+    // values not yet taken go first; the G0's take over from the next frame.
+    if (!ready || rx.engineId != status.activeId || pending || appliedReady_) { return; }
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls_.param[i] = rx.param[i]; }
     controls_.discrete = rx.discrete;
+}
+
+// At every frame end, valid or not. A G0 in its BOOT context sends no valid frames,
+// and must still see the values of an engine switch that completes meanwhile.
+void G0Spi::takeApplied()
+{
+    if (!appliedReady_) { return; }
+    __DMB();    // acquire: flag read before payload read
+    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls_.param[i] = applied_.param[i]; }
+    controls_.discrete = applied_.discrete;
+    defaultsSeqEcho_   = applied_.defaultsSeq;
+    __DMB();    // payload consumed before the channel reopens
+    appliedReady_ = false;
 }
 
 bool G0Spi::linkUp() const
@@ -147,6 +151,7 @@ void G0Spi::buildTx()
     tx.h7Flags         = static_cast<uint16_t>(status.flags |
                                                (validFrameCount_ != 0u ? H7_FLAG_STATE_VALID : 0u));
     tx.activeEngine    = status.activeId;
+    tx.targetEngine    = status.targetId;
     tx.engineDesc      = status.descriptor;
     tx.engineCount     = EngineRegistry::count();
     tx.activeIndex     = status.activeIndex;
@@ -202,6 +207,7 @@ bool G0Spi::onFrameEnd()
         (void) HAL_SPI_Abort(config_.spi);
     }
 
+    takeApplied();
     // Built after the abort, so no transfer is reading the buffer.
     buildTx();
     // A failed arm needs no retry logic: the next frame end tries again.

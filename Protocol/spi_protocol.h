@@ -64,7 +64,8 @@ typedef struct __attribute__((packed)) {    /* H7 -> G0 */
     uint16_t discrete;
     float    tempoHz;
     uint16_t ownerMask;                     /* ---- end echo ---- */
-    uint16_t reserved[5];
+    uint16_t targetEngine;                  /* the engine being switched to while H7_FLAG_LOADING; activeEngine otherwise */
+    uint16_t reserved[4];
 } H7ToG0Packet;
 
 static_assert(sizeof(G0ToH7Packet) == SPI_PACKET_NUM_WORDS * 2u, "G0ToH7Packet must be 32 words");

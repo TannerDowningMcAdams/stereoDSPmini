@@ -54,6 +54,7 @@ public:
     {
         uint32_t descriptor;
         uint16_t activeId;
+        uint16_t targetId;      // the engine being switched to; activeId otherwise
         uint16_t flags;         // H7_FLAG_ENGINE_READY, _LOADING, _UNKNOWN
         uint8_t  activeIndex;
     };
@@ -88,7 +89,8 @@ public:
     // Thread mode. What the echo reports about the engine from the next frame on.
     void publishEngine(const EngineStatus& status);
     // Thread mode. Replaces the applied param[] and discrete, and echoes defaultsSeq,
-    // at the next valid frame. False while the previous call has not been taken yet.
+    // at the next frame end, valid or not, so the echo carries them while a resetting
+    // G0 sends nothing valid. False while the previous call has not been taken yet.
     bool setApplied(const uint16_t* param, uint16_t discrete, uint8_t defaultsSeq);
 
     // What the H7 applies before the G0's first valid frame: no engine's params.
@@ -132,8 +134,8 @@ private:
     EngineStatus     engineStatus_[2] {};
     volatile uint8_t engineStatusIndex_ = 0;
 
-    // applied_ belongs to setApplied() while appliedReady_ is clear, and to parse()
-    // while it is set.
+    // applied_ belongs to setApplied() while appliedReady_ is clear, and to
+    // takeApplied() while it is set.
     struct Applied
     {
         uint16_t param[SPI_PARAM_COUNT];
@@ -168,5 +170,6 @@ private:
 
     Status arm();
     void   parse();
+    void   takeApplied();
     void   buildTx();
 } ;
