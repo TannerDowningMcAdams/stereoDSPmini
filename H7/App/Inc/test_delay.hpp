@@ -1,6 +1,8 @@
 #pragma once
 
 #include "audio_buffer.hpp"
+#include "engine_arena.hpp"
+#include "param_ramp.hpp"
 #include <cstdint>
 
 // A tempo-synced stereo delay with a click on each beat, for the M3 bench check. The
@@ -13,8 +15,7 @@ public:
     struct Config
     {
         uint32_t sampleRate;
-        float*   left;      // kMaxFrames each; init() clears them
-        float*   right;
+        Arena*   large;     // init() takes kLargeBytes from it for the lines
     };
 
     enum Param : uint8_t { kParamFeedback = 0, kParamMix, kParamClick };
@@ -22,6 +23,7 @@ public:
     // One second of stereo float. A repeat longer than that is halved until it fits,
     // so it stays on the beat grid.
     static constexpr uint32_t kMaxFrames   = 48128;
+    static constexpr uint32_t kLargeBytes  = 2u * arenaBytes(kMaxFrames * sizeof(float));
     static constexpr uint8_t  kRepeatOptions = 3;   // quarter, dotted eighth, eighth
     // Hann-windowed click, 0.5 ms wide, so it carries no step and little energy
     // above a few kHz.
@@ -39,7 +41,8 @@ public:
     // Forgets the buffer contents. O(1): samples not written since are read as silence.
     void reset();
 
-    // When a control set lands. params are 0..1; repeat is 0..kRepeatOptions-1.
+    // Every block, before process(). params are 0..1; repeat is 0..kRepeatOptions-1.
+    // Repeating it with the same values changes nothing.
     void setControls(const float* params, uint8_t repeat, float tempoHz, bool engaged);
 
     // beatIndex is the sample at which a beat falls in this block, or -1.
@@ -62,8 +65,12 @@ private:
     float    target_     = 0.0f;
     float    offset_     = 0.0f;
     float    decay_      = 0.0f;    // per sample
-    float    feedback_   = 0.0f;
-    float    clickLevel_ = 0.0f;
+    // Reached by a ramp across each block. The first block after init() starts at them.
+    float    feedbackTarget_ = 0.0f;
+    float    clickTarget_    = 0.0f;
+    dsp::ParamRamp feedback_;
+    dsp::ParamRamp clickLevel_;
+    bool     snap_       = true;
     bool     clickOn_    = false;
     uint16_t clickPos_   = kClickFrames;    // kClickFrames = idle
 

@@ -25,8 +25,9 @@ static float limitLoop(float x)
 
 void TestDelay::init(const Config& config)
 {
-    left_       = config.left;
-    right_      = config.right;
+    // Zeroed by the arena.
+    left_       = config.large->allocate<float>(kMaxFrames);
+    right_      = config.large->allocate<float>(kMaxFrames);
     sampleRate_ = static_cast<float>(config.sampleRate);
     decay_ = std::exp(-1.0f / (kGlideSeconds * sampleRate_));
 
@@ -37,16 +38,9 @@ void TestDelay::init(const Config& config)
         clickTable_[i] = 0.5f - 0.5f * std::cos(kTwoPi * (i + 1u) / (kClickFrames + 1u));
     }
 
-    // The lines come from an arena in AXI SRAM, which powers up with random data and
-    // ECC words, and is not cleared between engines.
-    for (uint32_t i = 0; i < kMaxFrames; i++)
-    {
-        left_[i]  = 0.0f;
-        right_[i] = 0.0f;
-    }
-
     target_ = sampleRate_ / kDefaultHz;
     offset_ = 0.0f;
+    snap_   = true;
     reset();
 }
 
@@ -73,8 +67,8 @@ void TestDelay::setControls(const float* params, uint8_t repeat, float tempoHz, 
     offset_ += target_ - frames;
     target_  = frames;
 
-    feedback_   = params[kParamFeedback] * kMaxFeedback;
-    clickLevel_ = params[kParamClick] * kClickPeak;
+    feedbackTarget_ = params[kParamFeedback] * kMaxFeedback;
+    clickTarget_    = params[kParamClick] * kClickPeak;
     // Bypassed with trails, the repeats ring out but the metronome stops.
     clickOn_    = engaged && tempoHz > 0.0f;
 }
@@ -93,9 +87,20 @@ float TestDelay::read(const float* line, float delay) const
 
 void TestDelay::process(dsp::ConstAudioBuffer input, dsp::AudioBuffer output, int32_t beatIndex)
 {
+    if (snap_)
+    {
+        feedback_.snap(feedbackTarget_);
+        clickLevel_.snap(clickTarget_);
+        snap_ = false;
+    }
+    feedback_.setTarget(feedbackTarget_, input.size());
+    clickLevel_.setTarget(clickTarget_, input.size());
+
     for (uint16_t i = 0; i < input.size(); i++)
     {
         if (static_cast<int32_t>(i) == beatIndex && clickOn_) { clickPos_ = 0u; }
+        const float feedback   = feedback_.next();
+        const float clickLevel = clickLevel_.next();
 
         offset_ *= decay_;
         // Cut off before it reaches the denormal range.
@@ -104,8 +109,8 @@ void TestDelay::process(dsp::ConstAudioBuffer input, dsp::AudioBuffer output, in
         const float wetL = read(left_, delay);
         const float wetR = read(right_, delay);
 
-        left_[write_]  = limitLoop(input.leftAt(i)  + feedback_ * wetL);
-        right_[write_] = limitLoop(input.rightAt(i) + feedback_ * wetR);
+        left_[write_]  = limitLoop(input.leftAt(i)  + feedback * wetL);
+        right_[write_] = limitLoop(input.rightAt(i) + feedback * wetR);
         write_ = (write_ + 1u) % kMaxFrames;
         if (written_ < kMaxFrames) { written_++; }
 
@@ -113,7 +118,7 @@ void TestDelay::process(dsp::ConstAudioBuffer input, dsp::AudioBuffer output, in
         float click = 0.0f;
         if (clickPos_ < kClickFrames)
         {
-            click = clickLevel_ * clickTable_[clickPos_];
+            click = clickLevel * clickTable_[clickPos_];
             clickPos_++;
         }
         output.setLeft(i,  wetL + click);
