@@ -109,7 +109,13 @@ static void resolveBoot(void)
 
     const H7ToG0Packet* echo = spiLinkEcho();
     const uint16_t ready = H7_FLAG_STATE_VALID | H7_FLAG_ENGINE_READY;
-    if (echo != NULL && (echo->h7Flags & ready) == ready)
+    if (echo != NULL && (echo->h7Flags & H7_FLAG_LOADING) != 0u)
+    {
+        // A switch the player started before the reset. Its end is the state to
+        // resume, however long the load takes.
+        bootDeadline = deadlineSet(BOOT_ECHO_WAIT_MS);
+    }
+    else if (echo != NULL && (echo->h7Flags & ready) == ready && echo->activeEngine == echo->targetEngine)
     {
         adoptEcho(echo);
     }
@@ -133,8 +139,11 @@ static void trackEngine(void)
         queryPending = false;
         if (echo->engineQueryId != ENGINE_ID_NONE)
         {
-            engineId = echo->engineQueryId;
-            defaultsSeq++;
+            // Differs from both values the H7 may hold: the echo, and the G0's own last one.
+            // After a reset the count restarts, and a request equal to an old echo matches at once.
+            engineId    = echo->engineQueryId;
+            defaultsSeq = (uint8_t) (defaultsSeq + 1u);
+            if (defaultsSeq == echo->defaultsSeqEcho) { defaultsSeq = (uint8_t) (defaultsSeq + 1u); }
             defaultsPending = true;
         }
     }
