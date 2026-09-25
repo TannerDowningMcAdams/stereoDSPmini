@@ -65,6 +65,10 @@ public:
     // Blocks published by the master; blocks lost because serviceBlock() fell behind.
     uint32_t blockCount()    const { return blockCount_; }
     uint32_t blockOverruns() const { return blockOverruns_; }
+    // Cycles the processor took for the last block, and the most since boot. The budget
+    // is SystemCoreClock * kBlockSize / kSampleRate, about 320k at 480 MHz.
+    uint32_t processCycles()     const { return processCycles_; }
+    uint32_t peakProcessCycles() const { return peakProcessCycles_; }
     // Accumulated HAL_SAI_ERROR_* bits, and callback count, since the last clear.
     uint32_t saiError(SaiId id)      const { return saiErrors_[static_cast<uint8_t>(id)]; }
     uint32_t saiErrorCount(SaiId id) const { return saiErrorCounts_[static_cast<uint8_t>(id)]; }
@@ -91,6 +95,9 @@ private:
     volatile uint32_t blockOverruns_ = 0;
     // DWT cycle count when the latest block was published, written with the count.
     volatile uint32_t blockCycles_   = 0;
+    // Written by serviceBlock() only.
+    volatile uint32_t processCycles_     = 0;
+    volatile uint32_t peakProcessCycles_ = 0;
 
     // Cached copy buffers for packing and unpacking
     // Half the size of the DMA buffers (not double buffered)

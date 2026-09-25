@@ -70,7 +70,11 @@ void Audio::serviceBlock()
 
     inputBuffer_.fromInterleaved(src, kInt24ToFloat, kDmaPadBits);
 
+    const uint32_t start = DWT->CYCCNT;
     if (processor_ != nullptr) { processor_->processAudioBlock(inputBuffer_, outputBuffer_, cycles); }
+    const uint32_t spent = DWT->CYCCNT - start;
+    processCycles_ = spent;
+    if (spent > peakProcessCycles_) { peakProcessCycles_ = spent; }
 
     outputBuffer_.toInterleaved(dst, kFloatToInt24);
 }
