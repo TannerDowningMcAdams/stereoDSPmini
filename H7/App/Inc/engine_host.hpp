@@ -52,7 +52,7 @@ private:
 
     void handleRequest(const G0Spi::Request& request);
     void swap(const G0Spi::Request* request);
+    void activateActive();
     void takeDefaults();
-    EngineControls appliedControls() const;
     void publish(uint16_t flags);
 };

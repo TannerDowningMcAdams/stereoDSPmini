@@ -7,12 +7,13 @@ void EngineHost::init(const Config& config)
     arenas_.init();
 
     activeIndex_ = 0u;
+    targetIndex_ = 0u;
     active_      = EngineRegistry::at(activeIndex_);
-    active_->activate(arenas_, config_.sampleRate);
+    activateActive();
     takeDefaults();
-    config_.processor->install(active_, appliedControls());
+    config_.processor->install(active_, appliedParam_, appliedDiscrete_);
 
-    // Taken at the G0's first valid frame, so the first echo already holds the defaults.
+    // Taken at the first frame end, so the first echo already holds the defaults.
     (void) config_.link->setApplied(appliedParam_, appliedDiscrete_, defaultsSeq_);
     publish(H7_FLAG_ENGINE_READY);
     state_ = State::Running;
@@ -87,7 +88,7 @@ void EngineHost::swap(const G0Spi::Request* request)
     arenas_.reset();
     activeIndex_ = targetIndex_;
     active_      = EngineRegistry::at(activeIndex_);
-    active_->activate(arenas_, config_.sampleRate);
+    activateActive();
 
     // The G0 may have moved on while the old engine faded; its latest frame decides.
     // Values it sent for another engine, or before a defaults request, are not used.
@@ -103,7 +104,7 @@ void EngineHost::swap(const G0Spi::Request* request)
         if (wanted) { defaultsSeq_ = request->defaultsSeq; }
     }
 
-    config_.processor->install(active_, appliedControls());
+    config_.processor->install(active_, appliedParam_, appliedDiscrete_);
     config_.processor->resume();
     publish(H7_FLAG_LOADING);
     state_ = State::Publishing;
@@ -116,12 +117,13 @@ void EngineHost::takeDefaults()
     appliedDiscrete_ = info.discreteDefault();
 }
 
-EngineControls EngineHost::appliedControls() const
+void EngineHost::activateActive()
 {
-    EngineControls controls {};
-    for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls.params[i] = appliedParam_[i] * (1.0f / 65535.0f); }
-    controls.discrete = appliedDiscrete_;
-    return controls;
+    active_->activate(arenas_, config_.sampleRate);
+    // The compile-time fit check trusts the declared sizes, so an engine that takes
+    // more than it declares stops here, on its first activation.
+    const EngineInfo& info = active_->info();
+    if (arenas_.fast.used() > info.fastBytes || arenas_.large.used() > info.largeBytes) { engineMemoryFault(); }
 }
 
 void EngineHost::publish(uint16_t flags)
@@ -129,6 +131,7 @@ void EngineHost::publish(uint16_t flags)
     G0Spi::EngineStatus status {};
     status.descriptor  = active_->info().descriptor();
     status.activeId    = active_->id();
+    status.targetId    = EngineRegistry::idAt(targetIndex_);
     status.activeIndex = activeIndex_;
     status.flags       = static_cast<uint16_t>(flags | (unknown_ ? H7_FLAG_ENGINE_UNKNOWN : 0u));
     config_.link->publishEngine(status);
