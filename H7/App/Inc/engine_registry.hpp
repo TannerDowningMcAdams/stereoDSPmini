@@ -5,8 +5,11 @@
 
 // The engines this H7 build offers, in selection order (plan §4.4). Index 0 is the
 // default engine: the one the H7 boots with and a new unit takes. The table and its
-// compile-time checks are in engine_registry.cpp; adding an engine changes only that
-// file and the engine's own.
+// compile-time checks are in engine_registry.cpp.
+//
+// Adding an engine: its header and source, an id in engine_ids.hpp, its type in the
+// list in engine_registry.cpp, and its sources in H7/CMakeLists.txt (and in
+// DSPminiHost's sync.sh when it has host tests).
 class EngineRegistry {
 public:
 

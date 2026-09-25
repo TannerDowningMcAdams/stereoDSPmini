@@ -30,28 +30,28 @@ constexpr bool infoValid(const EngineInfo& info)
     uint8_t bits   = 0u;
     for (uint8_t i = 0u; i < ENGINE_MAX_DISCRETE_FIELDS; i++)
     {
-        const uint8_t width = info.fieldWidth[i];
-        if (width == 0u || fields < i)
+        const FieldInfo& field = info.fields[i];
+        if (field.width == 0u || fields < i)
         {
-            // The first 0 ends the list; nothing may follow it.
-            if (width != 0u || info.fieldDefault[i] != 0u) { return false; }
+            // {0, 0} ends the list; nothing may follow it.
+            if (field.width != 0u || field.defaultValue != 0u) { return false; }
             continue;
         }
-        if (width > ENGINE_MAX_FIELD_WIDTH)                  { return false; }
-        if (info.fieldDefault[i] >= (1u << width))           { return false; }
+        if (field.width > ENGINE_MAX_FIELD_WIDTH)             { return false; }
+        if (field.defaultValue >= (1u << field.width))        { return false; }
         fields++;
-        bits = static_cast<uint8_t>(bits + width);
+        bits = static_cast<uint8_t>(bits + field.width);
     }
     if (bits > 16u) { return false; }
 
     if (info.modeOptions > ENGINE_MAX_MODE_OPTIONS) { return false; }
     if (info.modeOptions > 0u &&
-        (info.fieldWidth[ENGINE_MODE_FIELD] != ENGINE_MODE_FIELD_WIDTH ||
-         info.fieldDefault[ENGINE_MODE_FIELD] >= info.modeOptions)) { return false; }
+        (info.fields[ENGINE_MODE_FIELD].width != ENGINE_MODE_FIELD_WIDTH ||
+         info.fields[ENGINE_MODE_FIELD].defaultValue >= info.modeOptions)) { return false; }
 
     if (info.auxRole > AUX_ROLE_TOGGLE) { return false; }
     if (info.auxRole == AUX_ROLE_TOGGLE &&
-        (info.auxField >= fields || info.fieldWidth[info.auxField] != 1u)) { return false; }
+        (info.auxField >= fields || info.fields[info.auxField].width != 1u)) { return false; }
 
     if (info.blendParam != kEngineParamNone && info.blendParam >= SPI_PARAM_COUNT) { return false; }
     return true;
