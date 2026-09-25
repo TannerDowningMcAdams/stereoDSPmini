@@ -185,7 +185,6 @@ ProcessorControls System::toProcessorControls(const G0Spi::Controls& controls, u
         out.params[i] = controls.param[i] * (1.0f / 65535.0f);
     }
     out.discrete   = controls.discrete;
-    out.eventToggles = controls.eventToggles;
     out.runFlags   = controls.runFlags;
     out.tempoHz    = controls.tempoHz;
     out.tempoPhase = controls.tempoPhase;

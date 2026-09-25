@@ -13,7 +13,6 @@ struct ProcessorControls{
     uint16_t engineId;      // the engine params and discrete belong to; ENGINE_ID_NONE = none
     float params[8];        // 0..1, meaning set by the engine
     uint16_t discrete;      // fields per the engine's EngineInfo
-    uint16_t eventToggles;  // each G0 event flips its bit
     uint16_t runFlags;      // RUN_FLAG_*, for the bypass controller
     float tempoHz;
     uint16_t tempoPhase;
@@ -47,11 +46,11 @@ public:
     bool pushControls(const ProcessorControls &controls);
 
     // Thread mode. park() fades the engine out; once parked() is true, PendSV no longer
-    // calls it, and install() may replace it and give it its first controls. resume()
-    // fades the installed engine in. Before audio starts, install() needs no park.
+    // calls it, and install() may replace it with its first params and discrete word.
+    // resume() fades the installed engine in. Before audio starts, install() needs no park.
     void park()         { parkRequest_ = true; }
     bool parked() const { return parked_; }
-    void install(Engine* engine, const EngineControls& controls);
+    void install(Engine* engine, const uint16_t* param, uint16_t discrete);
     void resume();
 
 private:
@@ -60,6 +59,8 @@ private:
     TempoFollower tempo_;
     // Written by thread mode only while parked_ is set, or before audio starts.
     Engine* engine_ = nullptr;
+    // What the engine reads each block. Same ownership as engine_.
+    BlockContext ctx_ {};
     // The blend param in the controls the engine last took, or BypassController::kNoBlend.
     float   blend_  = BypassController::kNoBlend;
 
@@ -67,13 +68,11 @@ private:
     volatile bool parkRequest_ = false;
     volatile bool parked_      = false;
 
-    uint16_t lastToggles_ = 0;
-    bool     togglesSeen_ = false;
-
     void updateAlgorithmParams(uint32_t blockCycles);
     void updateBypass();
-    void applyEngineControls(uint16_t edges);
+    void applyEngineControls();
     void followPark();
+    void updateBlend();
     // pendingControls_ belongs to pushControls() while the flag is clear, and to
     // processAudioBlock() while it is set.
     ProcessorControls activeControls_;
