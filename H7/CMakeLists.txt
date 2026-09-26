@@ -56,7 +56,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     
 )
 
-# Application sources are listed explicitly: a glob does not re-run when files
+# Application and DSP sources are listed explicitly: a glob does not re-run when files
 # are added, and it silently swept in whatever was left lying in App/Src.
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/analog_dry.cpp
@@ -77,6 +77,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/tempo_follower.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/test_delay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/test_delay_engine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/frac_delay_line.cpp
 )
 
 # Add include paths
