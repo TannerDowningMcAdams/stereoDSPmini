@@ -56,6 +56,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core/boot_state.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core/bootloader.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core/spi_link.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/core/storage.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/core/storage_flash.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core/tempo.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core/timebase.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/hid/gesture.c

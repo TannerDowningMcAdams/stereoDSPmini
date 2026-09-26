@@ -7,6 +7,7 @@
 #include "main.h"
 #include "pot.h"
 #include "spi_link.h"
+#include "storage.h"
 #include "switch.h"
 #include "tempo.h"
 #include "tim.h"
@@ -17,7 +18,7 @@
 
 // TIM1 runs at 1 ms. CC1 starts each SPI frame (~100 us) and then wakes the thread
 // tick, which runs input -> ui -> output. The ADC scan (under 1 ms) is triggered by
-// TRGO2 on the update event, which the repetition counter holds to every 10th period.
+// TRGO2 on the update event, which the repetition counter holds to every 2nd period.
 
 _Static_assert(BOARD_MAX_SWITCHES <= SWITCH_MAX, "switch.c cannot hold every board switch");
 _Static_assert(BOARD_MAX_POTS <= POT_MAX, "pot.c cannot hold every board pot");
@@ -43,6 +44,7 @@ static uint32_t readSwitches(void)
 void appInit(void)
 {
     bootStateInit();
+    storageInit();
 
     uint32_t repeatMask = 0u;
     for (uint8_t i = 0; i < kBoard.numSwitches; i++)
