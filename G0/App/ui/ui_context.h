@@ -3,9 +3,8 @@
 #include "spi_protocol.h"
 #include <stdbool.h>
 
-// The UI contexts of plan §3.3: BOOT, then BYPASS and RUN. RECALL, STORE and
-// SETTINGS arrive with M4 and M5. Owns the live state the G0 sends until
-// param_store (G3) takes it over.
+// The UI contexts of plan §3.3: BOOT, then BYPASS, RUN, and the RECALL, STORE and
+// ENGINE menus. SETTINGS arrives with M5. The live state it sends is param_store's.
 
 void uiInit(void);
 
