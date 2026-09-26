@@ -84,6 +84,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/moog_ladder_plus.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/soft_clipper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/svf.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/wright_omega.cpp
 )
 
 # Add include paths
