@@ -159,6 +159,13 @@ uint32_t tempoPeriodUs(void)
     return (beat == 0) ? 0u : beat->periodUs;
 }
 
+uint16_t tempoInternalCentiBpm(void)
+{
+    if (internal.periodUs == 0u) { return 0u; }
+    // The inverse of tempoRecall(); at most 30000 at the 300 BPM clamp.
+    return (uint16_t) ((3000000000u / internal.periodUs) * 2u);
+}
+
 uint16_t tempoPhaseAt(uint32_t atUs)
 {
     const Beat* beat = activeBeat();

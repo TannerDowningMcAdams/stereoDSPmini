@@ -37,6 +37,8 @@ void tempoPoll(uint32_t nowUs);
 uint8_t  tempoSource(void);
 // 0 while no tempo is set.
 uint32_t tempoPeriodUs(void);
+// The tap or recalled tempo that STORE saves, whatever the MIDI clock does. 0 = none.
+uint16_t tempoInternalCentiBpm(void);
 // Position in the beat at atUs, 0..65535. atUs may be up to a few ms ahead of the
 // last tempoPoll().
 uint16_t tempoPhaseAt(uint32_t atUs);
