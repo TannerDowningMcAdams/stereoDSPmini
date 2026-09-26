@@ -80,6 +80,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/frac_delay_line.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/lfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/moog_ladder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/moog_ladder_plus.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/svf.cpp
 )
 
