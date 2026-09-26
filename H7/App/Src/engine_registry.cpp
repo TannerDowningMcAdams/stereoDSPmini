@@ -1,5 +1,6 @@
 #include "engine_registry.hpp"
 #include "passthrough_engine.hpp"
+#include "shimmer_reverb_engine.hpp"
 #include "test_delay_engine.hpp"
 
 namespace {
@@ -19,6 +20,7 @@ struct EngineList
 // Selection order. Index 0 is the default engine.
 using Registry = EngineList<
     TestDelayEngine,
+    ShimmerReverbEngine,
     PassthroughEngine
 >;
 
