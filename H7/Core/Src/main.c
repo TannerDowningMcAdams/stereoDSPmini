@@ -67,65 +67,6 @@ void App_Run(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// Temporary W25Q read/write bench test. Watch w25qTestStep and w25qTestState in
-// the debugger: step 0xFF means every check passed.
-#define W25Q_TEST_SECTOR  (SECTOR_COUNT - 1U)  // last sector, so nothing else is in the way
-#define W25Q_TEST_PAGE    (W25Q_TEST_SECTOR * 16U)
-
-volatile uint8_t w25qTestStep;
-volatile W25Q_STATE w25qTestState;
-static uint8_t w25qTestBuf[MEM_PAGE_SIZE];
-
-static bool W25Q_TestCheck(uint8_t step, W25Q_STATE state, bool ok)
-{
-  w25qTestStep = step;
-  w25qTestState = state;
-  return state == W25Q_OK && ok;
-}
-
-static bool W25Q_Test(void)
-{
-  W25Q_STATE s;
-
-  s = W25Q_EraseSector(W25Q_TEST_SECTOR);
-  if (!W25Q_TestCheck(1, s, true)) return false;
-
-  memset(w25qTestBuf, 0, sizeof w25qTestBuf);
-  s = W25Q_ReadData(w25qTestBuf, MEM_PAGE_SIZE, 0, W25Q_TEST_PAGE);
-  bool erased = true;
-  for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
-    erased &= (w25qTestBuf[i] == 0xFFU);
-  if (!W25Q_TestCheck(2, s, erased)) return false;
-
-  uint8_t byteRead = 0;
-  s = W25Q_ProgramByte(0x65U, 0, W25Q_TEST_PAGE);
-  if (!W25Q_TestCheck(3, s, true)) return false;
-  s = W25Q_ReadByte(&byteRead, 0, W25Q_TEST_PAGE);
-  if (!W25Q_TestCheck(4, s, byteRead == 0x65U)) return false;
-
-  uint32_t longRead = 0;
-  s = W25Q_ProgramLong(0xDEADBEEFUL, 4, W25Q_TEST_PAGE);
-  if (!W25Q_TestCheck(5, s, true)) return false;
-  s = W25Q_ReadLong(&longRead, 4, W25Q_TEST_PAGE);
-  if (!W25Q_TestCheck(6, s, longRead == 0xDEADBEEFUL)) return false;
-
-  // Full page on the next page up, so the quad program path moves a whole burst
-  for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
-    w25qTestBuf[i] = (uint8_t)(i * 7U + 3U);
-  s = W25Q_ProgramData(w25qTestBuf, MEM_PAGE_SIZE, 0, W25Q_TEST_PAGE + 1U);
-  if (!W25Q_TestCheck(7, s, true)) return false;
-
-  memset(w25qTestBuf, 0, sizeof w25qTestBuf);
-  s = W25Q_ReadData(w25qTestBuf, MEM_PAGE_SIZE, 0, W25Q_TEST_PAGE + 1U);
-  bool match = true;
-  for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
-    match &= (w25qTestBuf[i] == (uint8_t)(i * 7U + 3U));
-  if (!W25Q_TestCheck(8, s, match)) return false;
-
-  W25Q_TestCheck(0xFF, W25Q_OK, true);
-  return true;
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -187,12 +128,7 @@ int main(void)
   {
     Error_Handler();
   }
-
-  if (!W25Q_Test())
-  {
-    Error_Handler();
-  }
-
+  
   App_Run();
   /* USER CODE END 2 */
 
