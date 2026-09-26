@@ -44,7 +44,6 @@ void Processor::processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer 
     const float   phase = tempo_.running() ? tempo_.phase() : 0.0f;
     const int32_t beat  = tempo_.advance(input.size());
 
-    // Block Processing here, on the input the bypass controller hands over.
     const dsp::ConstAudioBuffer engineInput = bypass_->beginBlock(input);
     if (!parked_ && engine_ != nullptr)
     {
@@ -94,7 +93,7 @@ void Processor::updateAlgorithmParams(uint32_t blockCycles)
 }
 
 // A set reaches the engine only when it was applied for that engine, so a new
-// preset's values never drive the engine it replaces (plan §4.1).
+// preset's values never drive the engine it replaces.
 void Processor::applyEngineControls()
 {
     const ProcessorControls& c = activeControls_;

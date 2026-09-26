@@ -3,7 +3,7 @@
 #include "engine.hpp"
 #include <cstdint>
 
-// The engines this H7 build offers, in selection order (plan §4.4). Index 0 is the
+// The engines this H7 build offers, in selection order. Index 0 is the
 // default engine: the one the H7 boots with and a new unit takes. The table and its
 // compile-time checks are in engine_registry.cpp.
 //

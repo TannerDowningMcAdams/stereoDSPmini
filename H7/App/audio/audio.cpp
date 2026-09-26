@@ -7,19 +7,15 @@
 #include <algorithm>
 #include <iterator>
 
-// DMA buffers are placed in an uncached SRAM carve-out to prevent cache coherency issues
 UNCACHED_RAM int32_t Audio::audioAdcDataDMA_[Audio::kCodecBufferSize];
 UNCACHED_RAM int32_t Audio::audioDacDataDMA_[Audio::kCodecBufferSize];
 
-// ISR handoff. Seeded to 1 so the first half-transfer interrupt moves it to 0.
 volatile uint32_t Audio::offset_ = 1u;
 
 void Audio::init(const Config& config)
 {
     config_ = config;
 
-    // memset takes a byte value, so a nonzero float fill would be silently
-    // wrong; std::fill keeps all six buffers consistent.
     std::fill(std::begin(audioAdcDataDMA_),   std::end(audioAdcDataDMA_),   0);
     std::fill(std::begin(audioDacDataDMA_),   std::end(audioDacDataDMA_),   0);
     std::fill(std::begin(leftInputBuffer_),   std::end(leftInputBuffer_),   0.0f);
@@ -105,7 +101,6 @@ void Audio::signalBlock()
 
 void Audio::resetCodec()
 {
-    // Pull NRST low, wait, then back high
     HAL_GPIO_WritePin(config_.codecReset.port, config_.codecReset.mask, GPIO_PIN_RESET);
     HAL_Delay(50);
     HAL_GPIO_WritePin(config_.codecReset.port, config_.codecReset.mask, GPIO_PIN_SET);
@@ -131,8 +126,8 @@ Status Audio::restart()
     (void) HAL_SAI_Abort(config_.dac);
     (void) HAL_SAI_Abort(config_.adc);
 
-    // Both streams are stopped, so this is safe: drop any block pending from
-    // before the fault, and silence the DAC rather than replay stale output.
+    // Both streams are stopped. Drop any block pending from before the fault, and
+    // silence the DAC so stale output does not replay.
     consumedCount_ = blockCount_;
     std::fill(std::begin(audioDacDataDMA_), std::end(audioDacDataDMA_), 0);
     return startDMA();
@@ -165,8 +160,7 @@ void Audio::audioErrorHandler(SAI_HandleTypeDef* hsai)
     // what is new. State is left alone, since the DMA may still be running.
     hsai->ErrorCode = HAL_SAI_ERROR_NONE;
 
-    // No restart here: the HAL calls it needs poll SysTick, which cannot preempt
-    // a priority-0 DMA IRQ. serviceErrors() does it from thread mode.
+    // The restart polls SysTick, so serviceErrors() runs it from thread mode.
     if ((bits & ~kNonFatalErrors) != 0u) { restartPending_ = 1u; }
 }
 

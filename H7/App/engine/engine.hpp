@@ -9,7 +9,8 @@
 
 // An engine is one effect or one fixed signal chain.
 // Engines are static instances that are never constructed or destroyed at runtime:
-// activate() and deactivate() take the place of both. TestDelayEngine is the template.
+// activate() and deactivate() take the place of both. ShimmerReverbEngine is the
+// reference example.
 
 static constexpr uint8_t  kEngineParamNone = 0xFFu;
 static constexpr uint16_t kParamHalfScale  = 0x8000u;

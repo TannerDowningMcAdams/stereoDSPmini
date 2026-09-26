@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// Beat phase on the H7, locked to the G0's (plan §2, H4). The phase runs freely at
+// Beat phase on the H7, locked to the G0's. The phase runs freely at
 // tempoHz and is corrected toward the G0's tempoPhase, which is the phase at the CS
 // rising edge of the frame that carried it. Both instants are cycle-counter stamps,
 // so the correction does not depend on when the audio thread gets to it. No HAL.

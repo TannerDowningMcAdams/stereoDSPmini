@@ -1,5 +1,6 @@
 # Internal documentation
 docs/
+CLAUDE.md
 
 # Superbuild output; sub-project build dirs are ignored by their own .gitignore
 build/

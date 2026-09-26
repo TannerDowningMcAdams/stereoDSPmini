@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// Static bump allocators for engine memory (plan §4.4, H9). There is no individual
+// Static bump allocators for engine memory. There is no individual
 // free: the host resets both arenas whenever the engine changes, and an engine takes
 // its worst case in activate() and never resizes.
 

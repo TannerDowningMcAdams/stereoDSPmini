@@ -8,12 +8,10 @@ extern "C" {
 }
 #endif
 
-// Single global system instance
 System gSystem;
 
 extern "C" void App_Run(void)
 {
-    // Initialize peripheral objects and interrupts
     gSystem.init();
 
     // DSP runs in PendSV. Thread mode is left for work of any length, such as

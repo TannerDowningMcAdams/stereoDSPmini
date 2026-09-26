@@ -41,9 +41,8 @@ void System::init()
 
     // Unengaged from here: relays off, VCA at -100 dB.
     bypass_.init(bypassConfig);
-    // Defaults are pushed before SPI starts: pushControls() assumes one producer,
-    // and after this the SPI ISR is the only one. They carry no engine params: the
-    // engine host gives the default engine its own.
+    // Pushed before SPI starts: pushControls() allows one producer, which is the SPI
+    // ISR from here on. The defaults carry no engine params; the engine host supplies them.
     processor_.init({ Audio::kSampleRate, SystemCoreClock, &bypass_ });
     processor_.pushControls(toProcessorControls(G0Spi::defaultControls(), 0u));
     g0Spi_.init(spiConfig);
@@ -152,7 +151,7 @@ System::G0State System::updateG0()
 }
 #endif
 
-// SPI DMA callback, once per G0 frame (1 ms); see callbacks.cpp for origin
+// SPI DMA callback, once per G0 frame (1 ms).
 void System::spiTxRxComplete()
 {
     // Only a valid frame drives anything. Until the G0's first one, the defaults
@@ -172,7 +171,7 @@ void System::spiFrameEnd()
 {
     if (!g0Spi_.onFrameEnd() || !g0Confirmed()) { return; }
 
-    // A refused set is dropped, not retried: the next frame 1 ms later is fresher.
+    // A refused set is dropped: the next frame, 1 ms later, is fresher.
     (void) processor_.pushControls(toProcessorControls(g0Spi_.controls(), g0Spi_.frameEdgeCycles()));
 }
 

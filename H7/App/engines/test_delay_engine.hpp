@@ -4,9 +4,8 @@
 #include "engine_ids.hpp"
 #include "test_delay.hpp"
 
-// TestDelay behind the engine interface, and the template for a new engine (plan §4.4,
-// "Writing an engine"). The mode field picks the repeat; the lines come from the large
-// arena.
+// TestDelay behind the engine interface. The mode field picks the repeat; the lines
+// come from the large arena.
 class TestDelayEngine final : public Engine {
 public:
 

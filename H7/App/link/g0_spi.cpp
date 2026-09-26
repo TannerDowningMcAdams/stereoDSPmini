@@ -113,9 +113,8 @@ void G0Spi::parse()
     const bool ready = (status.flags & H7_FLAG_ENGINE_READY) != 0u;
     controls_.engineId = ready ? status.activeId : static_cast<uint16_t>(ENGINE_ID_NONE);
 
-    // A new preset's values must not drive the engine it replaces (plan §4.1), and
-    // values from before a defaults request must not replace the defaults. Applied
-    // values not yet taken go first; the G0's take over from the next frame.
+    // Only values for the running engine apply, and not while defaults are pending or
+    // applied values are still to be taken. The G0's values take over on the next frame.
     if (!ready || rx.engineId != status.activeId || pending || appliedReady_) { return; }
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls_.param[i] = rx.param[i]; }
     controls_.discrete = rx.discrete;

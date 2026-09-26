@@ -11,8 +11,8 @@ public:
 
     struct Config
     {
-        // dac must be the clock master: only its callbacks publish the half, and
-        // adc must be synchronous to it.
+        // dac is the clock master and adc its synchronous slave. Only the adc
+        // callbacks publish the half.
         SAI_HandleTypeDef* dac;
         SAI_HandleTypeDef* adc;
         Pin                codecReset;
@@ -54,8 +54,8 @@ public:
     void txHalfComplete() { }
     void txComplete()     { }
 
-    // Both blocks share one clock and frame, so only ond block's callbacks publish the half.
-    // The RX interrupt always follows TX, so only RX is used.
+    // Both blocks share one clock and frame, and the RX interrupt follows TX, so RX
+    // alone publishes the half.
     void rxHalfComplete();
     void rxComplete();
     // ISR context, from SAI1_IRQn or a DMA stream IRQ. Latches and returns.
@@ -99,8 +99,7 @@ private:
     volatile uint32_t processCycles_     = 0;
     volatile uint32_t peakProcessCycles_ = 0;
 
-    // Cached copy buffers for packing and unpacking
-    // Half the size of the DMA buffers (not double buffered)
+    // One block per channel in cached RAM, unpacked from and packed into the DMA half.
     float leftInputBuffer_   [kBlockSize];
     float rightInputBuffer_  [kBlockSize];
     float leftOutputBuffer_  [kBlockSize];

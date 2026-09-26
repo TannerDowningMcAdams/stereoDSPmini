@@ -42,7 +42,7 @@ public:
     // PendSV. blockCycles: cycle count when the block's DMA half was published.
     void processAudioBlock(dsp::ConstAudioBuffer input, dsp::AudioBuffer output, uint32_t blockCycles);
     // Called from the SPI ISR. Refused while the previous set is unconsumed, so the
-    // payload has one owner at a time; the caller simply tries again next tick.
+    // payload has one owner at a time; the caller tries again next tick.
     bool pushControls(const ProcessorControls &controls);
 
     // Thread mode. park() fades the engine out; once parked() is true, PendSV no longer

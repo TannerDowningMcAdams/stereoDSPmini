@@ -52,9 +52,8 @@ void BypassController::setEngineParked(bool parked)
 
 void BypassController::updateTargets()
 {
-    // Bypassed, the engine input fades out and its output stays up, so trails ring
-    // out. In true bypass the relays take both out of the path. Parked, only the dry
-    // path is heard.
+    // Bypassed, the engine input fades out and its output stays up so trails ring out;
+    // in true bypass the relays remove both. Parked, only the dry path is heard.
     const float dry = (engaged_ && !parked_) ? dryEngaged_ : 1.0f;
     input_.target      = (engaged_ && inputHold_ == 0u) ? 1.0f : 0.0f;
     wet_.target        = parked_ ? 0.0f : (engaged_ ? wetEngaged_ : 1.0f);
@@ -104,7 +103,7 @@ void BypassController::stepRelays()
 
 dsp::ConstAudioBuffer BypassController::beginBlock(dsp::ConstAudioBuffer input)
 {
-    // Mono in: the right input is ignored and the left feeds both sides.
+    // Mono in: the left input feeds both sides.
     const float* right = stereoIn_ ? input.right() : input.left();
     dryInput_ = dsp::ConstAudioBuffer(input.left(), right, input.size());
 

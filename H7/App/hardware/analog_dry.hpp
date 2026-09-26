@@ -27,6 +27,7 @@ public:
 
     void init(const Config& config);
 
+    // Raw 12-bit DAC code; higher bits are masked off.
     void setVcaValue(uint16_t dryStrength);
     // Linear amplitude 0..1 through the SSI2162 law.
     void setGain(float gain);
