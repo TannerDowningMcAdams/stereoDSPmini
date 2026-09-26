@@ -77,6 +77,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/system/callbacks.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/system/status.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/system/system.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/w25q_mem.c
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/envelope_follower.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/envelope_follower_plus.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/fdn_reverb.cpp
