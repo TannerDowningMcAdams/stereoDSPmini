@@ -57,27 +57,26 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 )
 
 # Application and DSP sources are listed explicitly: a glob does not re-run when files
-# are added, and it silently swept in whatever was left lying in App/Src.
+# are added, and it silently swept in whatever was left lying in the source folders.
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/analog_dry.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/app_main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/audio.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/bypass_controller.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/callbacks.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/engine_arena.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/engine_host.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/engine_registry.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/g0_bootloader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/g0_spi.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/passthrough_engine.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/processor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/relay.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/shimmer_reverb_engine.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/status.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/system.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/tempo_follower.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/test_delay.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Src/test_delay_engine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/audio/audio.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/audio/bypass_controller.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/audio/processor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/audio/tempo_follower.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/engine/engine_arena.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/engine/engine_host.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/engines/engine_registry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/engines/passthrough_engine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/engines/shimmer_reverb_engine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/engines/test_delay_engine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hardware/analog_dry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hardware/relay.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/link/g0_bootloader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/link/g0_spi.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/system/app_main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/system/callbacks.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/system/status.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/system/system.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/envelope_follower.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/envelope_follower_plus.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/fdn_reverb.cpp
@@ -88,12 +87,18 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/pitch_shifter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/soft_clipper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/svf.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/test_delay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Src/wright_omega.cpp
 )
 
-# Add include paths
+# Add include paths. App headers are included by bare name, so each folder is listed.
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/audio
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/engine
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/engines
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hardware
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/link
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/system
     ${CMAKE_CURRENT_SOURCE_DIR}/../Protocol
     ${CMAKE_CURRENT_SOURCE_DIR}/DSP/Inc
 )
