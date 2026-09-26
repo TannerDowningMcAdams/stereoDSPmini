@@ -6,7 +6,7 @@
 #include "processor.hpp"
 #include <cstdint>
 
-// Owns the active engine and switches it (plan §4.4, H6). Thread mode only, so an
+// Owns the active engine and switches it. Thread mode only, so an
 // activation may take any time while PendSV keeps the audio running.
 //
 // A switch parks the engine (its wet path fades out), swaps it, gives the new one

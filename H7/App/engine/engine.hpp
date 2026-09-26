@@ -7,10 +7,9 @@
 #include <array>
 #include <cstdint>
 
-// The engine model of plan §4.4. An engine is one effect or one fixed signal chain.
+// An engine is one effect or one fixed signal chain.
 // Engines are static instances that are never constructed or destroyed at runtime:
-// activate() and deactivate() take the place of both. TestDelayEngine is the template,
-// and plan §4.4 "Writing an engine" lists the rules.
+// activate() and deactivate() take the place of both. TestDelayEngine is the template.
 
 static constexpr uint8_t  kEngineParamNone = 0xFFu;
 static constexpr uint16_t kParamHalfScale  = 0x8000u;
@@ -52,10 +51,7 @@ struct EngineInfo
     FieldInfo     fields[ENGINE_MAX_DISCRETE_FIELDS] = {};
     ParamDefaults paramDefault = paramDefaults();   // normalized 0..65535
     // The param the bypass controller mixes dry against wet by, or kEngineParamNone to
-    // run fully wet. Analog dry skips the converters and the DMA, so it leads the wet
-    // signal by about 2 ms and comb-filters with any dry signal inside the wet one.
-    // Delays and reverbs are fine; phasers, flangers, chorus and parallel filters mix
-    // internally and declare no blend param.
+    // run fully wet. Analog dry skips the converters and the DMA.
     uint8_t       blendParam   = kEngineParamNone;
     uint32_t      fastBytes    = 0;                 // worst case per arena, in arenaBytes() units
     uint32_t      largeBytes   = 0;
