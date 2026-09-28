@@ -48,9 +48,9 @@ void System::init()
     uiSpi_.init(spiConfig);
     engineHost_.init({ &uiSpi_, &processor_, Audio::kSampleRate });
 #if STEREODSPMINI_G0_IMAGE
-    g0State_ = updateG0();
+    uiState_ = updateG0();
 #else
-    g0State_ = waitForG0(kG0LinkWindowMs, 0u) ? G0State::UpToDate : G0State::Absent;
+    uiState_ = waitForUi(kUiLinkWindowMs, 0u) ? UiState::UpToDate : UiState::Absent;
 #endif
     // Blocks run in PendSV, below every interrupt, so the G0 link's CS timestamp and
     // re-arm are never held up by DSP.
@@ -61,13 +61,13 @@ void System::init()
 }
 
 // Without a confirmed G0 there is no UI to trust, so its frames never engage the pedal.
-bool System::g0Confirmed() const
+bool System::uiConfirmed() const
 {
-    return g0State_ == G0State::UpToDate || g0State_ == G0State::Programmed;
+    return uiState_ == UiState::UpToDate || uiState_ == UiState::Programmed;
 }
 
 // True once a valid frame newer than framesBefore reports the expected G0 image version.
-bool System::waitForG0(uint32_t windowMs, uint32_t framesBefore)
+bool System::waitForUi(uint32_t windowMs, uint32_t framesBefore)
 {
     const uint32_t start = HAL_GetTick();
     do
@@ -80,8 +80,8 @@ bool System::waitForG0(uint32_t windowMs, uint32_t framesBefore)
     return false;
 }
 
-// True once no CS edge has arrived for kG0SilentMs.
-bool System::waitForG0Silent(uint32_t windowMs)
+// True once no CS edge has arrived for kUiSilentMs.
+bool System::waitForUiSilent(uint32_t windowMs)
 {
     const uint32_t start = HAL_GetTick();
     uint32_t lastCount = uiSpi_.frameCount();
@@ -95,7 +95,7 @@ bool System::waitForG0Silent(uint32_t windowMs)
             lastCount = count;
             lastEdge  = now;
         }
-        else if ((now - lastEdge) >= kG0SilentMs)
+        else if ((now - lastEdge) >= kUiSilentMs)
         {
             return true;
         }
@@ -113,22 +113,22 @@ void System::poll()
 // Programs the G0 with the embedded image when its app reports another version, or when
 // it is already in its bootloader (AUX held at power-up, or blank flash). Runs before
 // audio starts, since programming blocks for seconds.
-System::G0State System::updateG0()
+System::UiState System::updateG0()
 {
-    if (g0Bootloader_.init({ &huart3 }) != Status::OK) { return G0State::Failed; }
+    if (g0Bootloader_.init({ &huart3 }) != Status::OK) { return UiState::Failed; }
 
     const uint32_t start = HAL_GetTick();
-    while (!uiSpi_.uiSeen() && (HAL_GetTick() - start) < kG0LinkWindowMs) {}
+    while (!uiSpi_.uiSeen() && (HAL_GetTick() - start) < kUiLinkWindowMs) {}
 
     const bool appRunning = uiSpi_.uiSeen();
     if (appRunning)
     {
         if (uiSpi_.uiProtocolVersion() == PROTOCOL_VERSION && uiSpi_.uiFwVersion() == UI_FW_VERSION)
         {
-            return G0State::UpToDate;
+            return UiState::UpToDate;
         }
         uiSpi_.setBootloaderRequest(true);
-        (void) waitForG0Silent(kG0ResetWindowMs);
+        (void) waitForUiSilent(kG0ResetWindowMs);
         uiSpi_.setBootloaderRequest(false);
         // The transfer armed at the G0's last frame still holds the magic. Left in
         // place, the new image would receive it first and return to the bootloader.
@@ -136,7 +136,7 @@ System::G0State System::updateG0()
     }
 
     // No app and no bootloader: nothing on the FFC, or MIDI claimed the bootloader first.
-    if (!g0Bootloader_.probe(kG0ProbeWindowMs)) { return appRunning ? G0State::Failed : G0State::Absent; }
+    if (!g0Bootloader_.probe(kG0ProbeWindowMs)) { return appRunning ? UiState::Failed : UiState::Absent; }
 
     const uint32_t framesBefore = uiSpi_.validFrameCount();
     Status status = g0Bootloader_.program(g0_image_start, g0ImageSize());
@@ -144,10 +144,10 @@ System::G0State System::updateG0()
     {
         status = g0Bootloader_.program(g0_image_start, g0ImageSize());
     }
-    if (status != Status::OK) { return G0State::Failed; }
+    if (status != Status::OK) { return UiState::Failed; }
 
     // Go only proves the bootloader jumped; the new app must also start and report in.
-    return waitForG0(kG0ConfirmWindowMs, framesBefore) ? G0State::Programmed : G0State::Failed;
+    return waitForUi(kG0ConfirmWindowMs, framesBefore) ? UiState::Programmed : UiState::Failed;
 }
 #endif
 
@@ -159,9 +159,9 @@ void System::spiTxRxComplete()
     if (!uiSpi_.txRxComplete()) { return; }
     // A G0 that reports in after the boot check, e.g. one released from a debugger.
     // Failed stays latched.
-    if (g0State_ == G0State::Absent && uiSpi_.uiFwVersion() == UI_FW_VERSION)
+    if (uiState_ == UiState::Absent && uiSpi_.uiFwVersion() == UI_FW_VERSION)
     {
-        g0State_ = G0State::UpToDate;
+        uiState_ = UiState::UpToDate;
     }
 }
 
@@ -169,7 +169,7 @@ void System::spiTxRxComplete()
 // SPI completion, so they carry the edge their tempo phase refers to.
 void System::spiFrameEnd()
 {
-    if (!uiSpi_.onFrameEnd() || !g0Confirmed()) { return; }
+    if (!uiSpi_.onFrameEnd() || !uiConfirmed()) { return; }
 
     // A refused set is dropped: the next frame, 1 ms later, is fresher.
     (void) processor_.pushControls(toProcessorControls(uiSpi_.controls(), uiSpi_.frameEdgeCycles()));

@@ -44,27 +44,27 @@ private:
     // Covers a G0 that enters its bootloader at power-up: its app boot, debounce and reset.
     static constexpr uint32_t kG0ProbeWindowMs = 250u;
     // Covers the G0 app's boot to its first frame.
-    static constexpr uint32_t kG0LinkWindowMs  = 100u;
-    // The bootloader request stays up until the G0's frames stop for kG0SilentMs,
+    static constexpr uint32_t kUiLinkWindowMs  = 100u;
+    // The bootloader request stays up until the G0's frames stop for kUiSilentMs,
     // which means it has reset. kG0ResetWindowMs bounds a G0 that ignores the request.
-    static constexpr uint32_t kG0SilentMs      = 5u;
+    static constexpr uint32_t kUiSilentMs      = 5u;
     static constexpr uint32_t kG0ResetWindowMs = 100u;
     // Covers the new G0 app's boot after Go to its first valid frame.
     static constexpr uint32_t kG0ConfirmWindowMs = 500u;
 
     // Boot-time G0 check. The relays leave true bypass only on UpToDate or Programmed.
-    enum class G0State : uint8_t { Pending, UpToDate, Programmed, Absent, Failed };
+    enum class UiState : uint8_t { Pending, UpToDate, Programmed, Absent, Failed };
     // Read by the SPI ISR: G0 controls reach the audio path only once it is confirmed.
-    volatile G0State g0State_ = G0State::Pending;
+    volatile UiState uiState_ = UiState::Pending;
 
     BypassController bypass_;
     Processor processor_;
     EngineHost engineHost_;
 
-    G0State updateG0();
-    bool g0Confirmed() const;
-    bool waitForG0(uint32_t windowMs, uint32_t framesBefore);
-    bool waitForG0Silent(uint32_t windowMs);
+    UiState updateG0();
+    bool uiConfirmed() const;
+    bool waitForUi(uint32_t windowMs, uint32_t framesBefore);
+    bool waitForUiSilent(uint32_t windowMs);
     static ProcessorControls toProcessorControls(const UiSpi::Controls& controls, uint32_t edgeCycles);
 
 } ;
