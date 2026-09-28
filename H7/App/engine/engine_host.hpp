@@ -10,9 +10,9 @@
 // activation may take any time while PendSV keeps the audio running.
 //
 // A switch parks the engine (its wet path fades out), swaps it, gives the new one
-// either the G0's values or its defaults, resumes it, and then hands the same values
+// either the UI MCU's values or its defaults, resumes it, and then hands the same values
 // to the link, which echoes them. The echo reports the new engine ready only once the
-// link has them, so the G0 never adopts values the engine does not have.
+// link has them, so the UI MCU never adopts values the engine does not have.
 class EngineHost {
 public:
 
@@ -43,7 +43,7 @@ private:
     uint8_t      targetIndex_ = 0;
     State        state_       = State::Running;
     bool         unknown_     = false;
-    // The last defaultsSeq applied, or adopted by the G0 without a request.
+    // The last defaultsSeq applied, or adopted by the UI MCU without a request.
     uint8_t      defaultsSeq_ = 0;
 
     // What the active engine was given, until the link takes it.

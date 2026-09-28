@@ -48,7 +48,7 @@ extern "C" {
         gSystem.spiErrorCallback();
     }
 
-    // The G0 raises CS at the end of every packet.
+    // The UI MCU raises CS at the end of every packet.
     void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     {
         if (GPIO_Pin == G0_EXTI_Pin) { gSystem.spiFrameEnd(); }

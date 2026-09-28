@@ -76,7 +76,7 @@ bool UiSpi::txRxComplete()
     // so that cannot preempt this.
     if (rxPacketDMA_.messageId != SPI_MSG_ID_UI_TO_H7) { return false; }
 
-    // Recorded whatever the version: a G0 on another protocol is one to reprogram.
+    // Recorded whatever the version: a UI MCU on another protocol is one to reprogram.
     uiProtocolVersion_ = rxPacketDMA_.version;
     uiFwVersion_       = rxPacketDMA_.uiFwVersion;
     uiSeen_            = true;
@@ -114,13 +114,13 @@ void UiSpi::parse()
     controls_.engineId = ready ? status.activeId : static_cast<uint16_t>(ENGINE_ID_NONE);
 
     // Only values for the running engine apply, and not while defaults are pending or
-    // applied values are still to be taken. The G0's values take over on the next frame.
+    // applied values are still to be taken. The UI MCU's values take over on the next frame.
     if (!ready || rx.engineId != status.activeId || pending || appliedReady_) { return; }
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { controls_.param[i] = rx.param[i]; }
     controls_.discrete = rx.discrete;
 }
 
-// At every frame end, valid or not. A G0 in its BOOT context sends no valid frames,
+// At every frame end, valid or not. A UI MCU in its BOOT context sends no valid frames,
 // and must still see the values of an engine switch that completes meanwhile.
 void UiSpi::takeApplied()
 {
@@ -198,7 +198,7 @@ bool UiSpi::onFrameEnd()
         frameValid_      = false;
     }
 
-    // Still busy when the G0 ends its frame means the transfer began mid-packet.
+    // Still busy when the UI MCU ends its frame means the transfer began mid-packet.
     // Abort is quick here: its suspend-wait only runs in master mode.
     if (HAL_SPI_GetState(config_.spi) != HAL_SPI_STATE_READY)
     {

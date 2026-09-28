@@ -16,15 +16,15 @@ public:
 
     struct Config
     {
-        // Slave with software NSS. Framing comes from the G0's CS line instead,
+        // Slave with software NSS. Framing comes from the UI MCU's CS line instead,
         // through its EXTI: see onFrameEnd().
         SPI_HandleTypeDef* spi;
         uint16_t           csPin;   // GPIO_PIN_x of the CS line; also its EXTI line
     };
 
-    // The G0's state as last applied. param[] and discrete change only on frames that
+    // The UI MCU's state as last applied. param[] and discrete change only on frames that
     // want the running engine, so they never drive the wrong one, and not at all while
-    // the G0 waits for defaults. The engine host sets them through setApplied().
+    // the UI MCU waits for defaults. The engine host sets them through setApplied().
     struct Controls
     {
         uint16_t engineId;      // the engine param[] and discrete belong to; ENGINE_ID_NONE while switching
@@ -39,7 +39,7 @@ public:
         uint16_t frameSeq;
     };
 
-    // What the G0 last asked for, for the engine host.
+    // What the UI MCU last asked for, for the engine host.
     struct Request
     {
         uint16_t engineId;
@@ -63,7 +63,7 @@ public:
     ~UiSpi() = default;
 
     static constexpr uint16_t kSpiPacketWords = SPI_PACKET_NUM_WORDS;
-    // Well above a G0 flash page erase (20-40 ms of dropped frames).
+    // Well above a UI MCU flash page erase (20-40 ms of dropped frames).
     static constexpr uint32_t kLinkTimeoutMs  = 100u;
 
     void init(const Config& config);
@@ -73,15 +73,15 @@ public:
     bool txRxComplete();
     // SPI ISR: latch the error. The next frame end re-arms, as it always does.
     void spiErrorHandler();
-    // EXTI ISR on the G0's CS rising edge. The bus is idle until the next packet,
+    // EXTI ISR on the UI MCU's CS rising edge. The bus is idle until the next packet,
     // so this is the only place a transfer is ever armed. True when the edge ended a
     // valid frame: controls() is then complete, and frameEdgeCycles() is its edge.
     bool onFrameEnd();
 
-    // Thread mode. While set, every frame sent to the G0 carries the bootloader magic.
+    // Thread mode. While set, every frame sent to the UI MCU carries the bootloader magic.
     void setBootloaderRequest(bool request) { bootloaderRequest_ = request; }
     // Thread mode. Runs onFrameEnd() through a software EXTI, so a transfer that was
-    // armed with stale contents is replaced before the G0 clocks it out.
+    // armed with stale contents is replaced before the UI MCU clocks it out.
     void restartFrame();
 
     // Thread mode. The last valid frame's request; false before the first one.
@@ -90,10 +90,10 @@ public:
     void publishEngine(const EngineStatus& status);
     // Thread mode. Replaces the applied param[] and discrete, and echoes defaultsSeq,
     // at the next frame end, valid or not, so the echo carries them while a resetting
-    // G0 sends nothing valid. False while the previous call has not been taken yet.
+    // UI MCU sends nothing valid. False while the previous call has not been taken yet.
     bool setApplied(const uint16_t* param, uint16_t discrete, uint8_t defaultsSeq);
 
-    // What the H7 applies before the G0's first valid frame: no engine's params.
+    // What the H7 applies before the UI MCU's first valid frame: no engine's params.
     static Controls defaultControls();
 
     const Controls& controls() const { return controls_; }
@@ -103,8 +103,8 @@ public:
     // DWT cycle count at the CS rising edge that ended the last valid frame.
     uint32_t frameEdgeCycles() const { return frameEdgeCycles_; }
 
-    // From any CRC-valid G0 frame, whatever its protocol version, so the H7 can
-    // detect a G0 that needs reprogramming.
+    // From any CRC-valid UI frame, whatever its protocol version, so the H7 can
+    // detect a UI MCU that needs reprogramming.
     bool     uiSeen()            const { return uiSeen_; }
     uint16_t uiProtocolVersion() const { return uiProtocolVersion_; }
     uint16_t uiFwVersion()       const { return uiFwVersion_; }

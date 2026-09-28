@@ -47,7 +47,7 @@ void EngineHost::poll()
 
 void EngineHost::handleRequest(const UiSpi::Request& request)
 {
-    // With no request outstanding, defaultsSeq is what the G0 has adopted. Taking it
+    // With no request outstanding, defaultsSeq is what the UI MCU has adopted. Taking it
     // here means a restarted H7 does not mistake it for a new request.
     if (!request.defaultsPending) { defaultsSeq_ = request.defaultsSeq; }
 
@@ -90,7 +90,7 @@ void EngineHost::swap(const UiSpi::Request* request)
     active_      = EngineRegistry::at(activeIndex_);
     activateActive();
 
-    // The G0 may have moved on while the old engine faded; its latest frame decides.
+    // The UI MCU may have moved on while the old engine faded; its latest frame decides.
     // Values it sent for another engine, or before a defaults request, are not used.
     const bool wanted = request != nullptr && request->engineId == active_->id();
     if (wanted && !request->defaultsPending)

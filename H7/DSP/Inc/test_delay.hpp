@@ -7,7 +7,7 @@
 
 // A tempo-synced stereo delay with a click on each beat, for the M3 bench check. The
 // repeats show that tempoHz arrived; the click, placed by the TempoFollower, shows
-// that the phase matches the G0's LED. Outputs wet only: the bypass controller mixes
+// that the phase matches the UI MCU's LED. Outputs wet only: the bypass controller mixes
 // the dry path by the mix param. TestDelayEngine puts it behind the engine interface.
 class TestDelay {
 public:

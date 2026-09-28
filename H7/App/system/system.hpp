@@ -43,7 +43,7 @@ private:
     G0Bootloader g0Bootloader_;
     // Covers a G0 that enters its bootloader at power-up: its app boot, debounce and reset.
     static constexpr uint32_t kG0ProbeWindowMs = 250u;
-    // Covers the G0 app's boot to its first frame.
+    // Covers the UI MCU's boot to its first frame.
     static constexpr uint32_t kUiLinkWindowMs  = 100u;
     // The bootloader request stays up until the G0's frames stop for kUiSilentMs,
     // which means it has reset. kG0ResetWindowMs bounds a G0 that ignores the request.
@@ -52,9 +52,9 @@ private:
     // Covers the new G0 app's boot after Go to its first valid frame.
     static constexpr uint32_t kG0ConfirmWindowMs = 500u;
 
-    // Boot-time G0 check. The relays leave true bypass only on UpToDate or Programmed.
+    // Boot-time UI MCU check. The relays leave true bypass only on UpToDate or Programmed.
     enum class UiState : uint8_t { Pending, UpToDate, Programmed, Absent, Failed };
-    // Read by the SPI ISR: G0 controls reach the audio path only once it is confirmed.
+    // Read by the SPI ISR: UI controls reach the audio path only once the UI MCU is confirmed.
     volatile UiState uiState_ = UiState::Pending;
 
     BypassController bypass_;

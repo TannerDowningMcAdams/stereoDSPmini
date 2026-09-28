@@ -52,7 +52,7 @@ void System::init()
 #else
     uiState_ = waitForUi(kUiLinkWindowMs, 0u) ? UiState::UpToDate : UiState::Absent;
 #endif
-    // Blocks run in PendSV, below every interrupt, so the G0 link's CS timestamp and
+    // Blocks run in PendSV, below every interrupt, so the UI link's CS timestamp and
     // re-arm are never held up by DSP.
     HAL_NVIC_SetPriority(PendSV_IRQn, 15, 0);
     // Processor is ready before the first block can be published.
@@ -60,13 +60,13 @@ void System::init()
     audio_.init(audioConfig);
 }
 
-// Without a confirmed G0 there is no UI to trust, so its frames never engage the pedal.
+// An unconfirmed UI MCU is not trusted, so its frames never engage the pedal.
 bool System::uiConfirmed() const
 {
     return uiState_ == UiState::UpToDate || uiState_ == UiState::Programmed;
 }
 
-// True once a valid frame newer than framesBefore reports the expected G0 image version.
+// True once a valid frame newer than framesBefore reports the expected UI firmware version.
 bool System::waitForUi(uint32_t windowMs, uint32_t framesBefore)
 {
     const uint32_t start = HAL_GetTick();
@@ -151,13 +151,13 @@ System::UiState System::updateG0()
 }
 #endif
 
-// SPI DMA callback, once per G0 frame (1 ms).
+// SPI DMA callback, once per UI frame (1 ms).
 void System::spiTxRxComplete()
 {
-    // Only a valid frame drives anything. Until the G0's first one, the defaults
+    // Only a valid frame drives anything. Until the UI MCU's first one, the defaults
     // set in init() stand.
     if (!uiSpi_.txRxComplete()) { return; }
-    // A G0 that reports in after the boot check, e.g. one released from a debugger.
+    // A UI MCU that reports in after the boot check, e.g. one released from a debugger.
     // Failed stays latched.
     if (uiState_ == UiState::Absent && uiSpi_.uiFwVersion() == UI_FW_VERSION)
     {
@@ -165,7 +165,7 @@ void System::spiTxRxComplete()
     }
 }
 
-// EXTI on the G0's CS rising edge. Controls go to the processor here rather than on
+// EXTI on the UI MCU's CS rising edge. Controls go to the processor here rather than on
 // SPI completion, so they carry the edge their tempo phase refers to.
 void System::spiFrameEnd()
 {
