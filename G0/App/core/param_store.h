@@ -34,7 +34,7 @@ void paramStoreSetSlot(uint8_t slot);
 // Tempo is left 0.
 void paramStoreSnapshot(Preset* preset);
 // Warm reset: the state the H7 last applied (plan §4.3).
-void paramStoreRestore(const H7ToG0Packet* echo);
+void paramStoreRestore(const H7ToUiPacket* echo);
 
 // A pot or MIDI CC takes the param over.
 void paramStoreSetParam(uint8_t index, uint16_t value);
@@ -49,8 +49,8 @@ bool     paramStoreReady(void);
 uint8_t  paramStorePresetIndex(void);
 
 // Once per tick with spiLinkEcho(), which may be NULL. Returns PARAM_STORE_* bits.
-uint8_t paramStoreTrack(const H7ToG0Packet* echo);
+uint8_t paramStoreTrack(const H7ToUiPacket* echo);
 
 // Fills engineId, presetIndex, the query and defaults fields, param[], discrete and
 // ownerMask.
-void paramStoreFill(G0ToH7Packet* tx);
+void paramStoreFill(UiToH7Packet* tx);

@@ -147,8 +147,8 @@ private:
 
     // DMA buffers, aligned for halfword DMA although the packets are packed. Not
     // volatile: the carve-out is uncached, and volatile only invites a cast that strips it (UB).
-    alignas(4) static G0ToH7Packet rxPacketDMA_;
-    alignas(4) static H7ToG0Packet txPacketDMA_;
+    alignas(4) static UiToH7Packet rxPacketDMA_;
+    alignas(4) static H7ToUiPacket txPacketDMA_;
 
     // Every writer below runs at priority 2 (SPI2, both DMA streams, EXTI15_10), so
     // they cannot preempt each other and need no critical section.

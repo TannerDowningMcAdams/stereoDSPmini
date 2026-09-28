@@ -92,7 +92,7 @@ static void readPots(void)
 
 static void buildFrame(void)
 {
-    G0ToH7Packet* tx = spiLinkBeginTx();
+    UiToH7Packet* tx = spiLinkBeginTx();
     if (tx != NULL && uiFillFrame(tx)) { spiLinkCommitTx(); }
 }
 

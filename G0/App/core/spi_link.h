@@ -15,7 +15,7 @@ void spiLinkPoll(void);
 
 // Thread mode. The buffer for the next frame, or NULL while the previous commit has
 // not been sent yet. The link fills the header on commit.
-G0ToH7Packet* spiLinkBeginTx(void);
+UiToH7Packet* spiLinkBeginTx(void);
 void          spiLinkCommitTx(void);
 
 // Thread mode. When the CS rising edge of the frame being built will occur, in
@@ -24,4 +24,4 @@ uint32_t spiLinkNextEdgeUs(void);
 
 // Thread mode. The H7's last valid frame, or NULL if none arrived within the link
 // timeout.
-const H7ToG0Packet* spiLinkEcho(void);
+const H7ToUiPacket* spiLinkEcho(void);

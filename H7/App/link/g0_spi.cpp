@@ -10,8 +10,8 @@ extern "C" {
 }
 #endif
 
-UNCACHED_RAM G0ToH7Packet G0Spi::rxPacketDMA_;
-UNCACHED_RAM H7ToG0Packet G0Spi::txPacketDMA_;
+UNCACHED_RAM UiToH7Packet G0Spi::rxPacketDMA_;
+UNCACHED_RAM H7ToUiPacket G0Spi::txPacketDMA_;
 
 // The DWT cycle counter stamps each CS edge; System::init() starts it.
 void G0Spi::init(const Config& config)
@@ -74,7 +74,7 @@ bool G0Spi::txRxComplete()
 {
     // Parsed before onFrameEnd() re-arms into this buffer. Both run at priority 2,
     // so that cannot preempt this.
-    if (rxPacketDMA_.messageId != SPI_MSG_ID_G0_TO_H7) { return false; }
+    if (rxPacketDMA_.messageId != SPI_MSG_ID_UI_TO_H7) { return false; }
 
     // Recorded whatever the version: a G0 on another protocol is one to reprogram.
     g0ProtocolVersion_ = rxPacketDMA_.version;
@@ -91,7 +91,7 @@ bool G0Spi::txRxComplete()
 
 void G0Spi::parse()
 {
-    const G0ToH7Packet& rx = rxPacketDMA_;
+    const UiToH7Packet& rx = rxPacketDMA_;
     frameSeq_              = rx.frameSeq;
     controls_.presetIndex  = rx.presetIndex;
     controls_.runFlags     = rx.runFlags;
@@ -141,8 +141,8 @@ bool G0Spi::linkUp() const
 void G0Spi::buildTx()
 {
     const EngineStatus& status = engineStatus_[engineStatusIndex_];
-    H7ToG0Packet& tx = txPacketDMA_;
-    tx.messageId       = SPI_MSG_ID_H7_TO_G0;
+    H7ToUiPacket& tx = txPacketDMA_;
+    tx.messageId       = SPI_MSG_ID_H7_TO_UI;
     tx.version         = PROTOCOL_VERSION;
     tx.bootloaderMagic = bootloaderRequest_ ? SPI_BOOTLOADER_MAGIC : 0u;
     tx.h7FwVersion     = H7_FW_VERSION;

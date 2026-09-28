@@ -124,7 +124,7 @@ static void enterFavourite(void)
 }
 
 // Warm reset: resume from the state the H7 last applied (plan §4.3).
-static void adoptEcho(const H7ToG0Packet* echo)
+static void adoptEcho(const H7ToUiPacket* echo)
 {
     paramStoreRestore(echo);
     potRebaseline();
@@ -146,7 +146,7 @@ static void resolveBoot(void)
 {
     if (bootWasCold()) { enterFavourite(); return; }
 
-    const H7ToG0Packet* echo = spiLinkEcho();
+    const H7ToUiPacket* echo = spiLinkEcho();
     const uint16_t ready = H7_FLAG_STATE_VALID | H7_FLAG_ENGINE_READY;
     if (echo != NULL && (echo->h7Flags & H7_FLAG_LOADING) != 0u)
     {
@@ -194,7 +194,7 @@ static void leaveMenu(void)
 
 static void enterEngineSelect(void)
 {
-    const H7ToG0Packet* echo = spiLinkEcho();
+    const H7ToUiPacket* echo = spiLinkEcho();
     if (echo == NULL || echo->engineCount == 0u || !paramStoreReady()) { return; }
     const uint8_t index = (echo->activeIndex < echo->engineCount) ? echo->activeIndex : 0u;
     enterMenu(CONTEXT_ENGINE, index, echo->engineCount);
@@ -518,7 +518,7 @@ void uiTick(void)
     renderLeds();
 }
 
-bool uiFillFrame(G0ToH7Packet* tx)
+bool uiFillFrame(UiToH7Packet* tx)
 {
     if (context == CONTEXT_BOOT) { return false; }
 

@@ -9,22 +9,22 @@
  * is dropped by the receiver, which keeps its last good values. */
 #define SPI_PACKET_NUM_WORDS   32u
 
-#define SPI_MSG_ID_G0_TO_H7    0x5A9Fu
-#define SPI_MSG_ID_H7_TO_G0    0xA5F9u
+#define SPI_MSG_ID_UI_TO_H7    0x5A9Fu
+#define SPI_MSG_ID_H7_TO_UI    0xA5F9u
 
 /* Accepted by the G0 on any CRC-valid H7 frame, whatever its version. */
 #define SPI_BOOTLOADER_MAGIC   0xB00710ADu
 
 #define SPI_PARAM_COUNT        8u
 
-/* Words 0-2 of G0ToH7Packet and words 0-4 of H7ToG0Packet keep their positions in
+/* Words 0-2 of UiToH7Packet and words 0-4 of H7ToUiPacket keep their positions in
  * every protocol version. They carry the version check and the G0 update path, which
  * must keep working between boards built against different versions.
  *
  * Every field is naturally aligned, so the layout does not depend on the packing. */
 
 typedef struct __attribute__((packed)) {    /* G0 -> H7 */
-    uint16_t messageId;                     /* SPI_MSG_ID_G0_TO_H7 */
+    uint16_t messageId;                     /* SPI_MSG_ID_UI_TO_H7 */
     uint16_t version;                       /* PROTOCOL_VERSION */
     uint16_t g0FwVersion;                   /* G0_FW_VERSION */
     uint16_t frameSeq;
@@ -41,10 +41,10 @@ typedef struct __attribute__((packed)) {    /* G0 -> H7 */
     uint16_t tempoPhase;                    /* phase at this frame's CS rising edge */
     uint16_t ownerMask;                     /* params the panel or MIDI own, for the echo */
     uint16_t reserved[10];
-} G0ToH7Packet;
+} UiToH7Packet;
 
 typedef struct __attribute__((packed)) {    /* H7 -> G0 */
-    uint16_t messageId;                     /* SPI_MSG_ID_H7_TO_G0 */
+    uint16_t messageId;                     /* SPI_MSG_ID_H7_TO_UI */
     uint16_t version;                       /* PROTOCOL_VERSION */
     uint32_t bootloaderMagic;               /* SPI_BOOTLOADER_MAGIC, or 0 */
     uint16_t h7FwVersion;                   /* H7_FW_VERSION */
@@ -66,10 +66,10 @@ typedef struct __attribute__((packed)) {    /* H7 -> G0 */
     uint16_t ownerMask;                     /* ---- end echo ---- */
     uint16_t targetEngine;                  /* the engine being switched to while H7_FLAG_LOADING; activeEngine otherwise */
     uint16_t reserved[4];
-} H7ToG0Packet;
+} H7ToUiPacket;
 
-static_assert(sizeof(G0ToH7Packet) == SPI_PACKET_NUM_WORDS * 2u, "G0ToH7Packet must be 32 words");
-static_assert(sizeof(H7ToG0Packet) == SPI_PACKET_NUM_WORDS * 2u, "H7ToG0Packet must be 32 words");
+static_assert(sizeof(UiToH7Packet) == SPI_PACKET_NUM_WORDS * 2u, "UiToH7Packet must be 32 words");
+static_assert(sizeof(H7ToUiPacket) == SPI_PACKET_NUM_WORDS * 2u, "H7ToUiPacket must be 32 words");
 
 /* runFlags */
 #define RUN_FLAG_ENGAGED          (1u << 0)

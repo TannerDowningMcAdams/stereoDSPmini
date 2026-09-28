@@ -79,14 +79,14 @@ void paramStoreSnapshot(Preset* preset)
     preset->tempo    = 0u;
 }
 
-static void takeEchoValues(const H7ToG0Packet* echo)
+static void takeEchoValues(const H7ToUiPacket* echo)
 {
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { param[i] = echo->param[i]; }
     discrete  = echo->discrete;
     ownerMask = echo->ownerMask;
 }
 
-void paramStoreRestore(const H7ToG0Packet* echo)
+void paramStoreRestore(const H7ToUiPacket* echo)
 {
     engineId        = echo->activeEngine;
     defaultsSeq     = echo->defaultsSeqEcho;
@@ -130,7 +130,7 @@ uint8_t paramStorePresetIndex(void)
     return presetIndex;
 }
 
-uint8_t paramStoreTrack(const H7ToG0Packet* echo)
+uint8_t paramStoreTrack(const H7ToUiPacket* echo)
 {
     engineReady = false;
     if (echo == NULL) { return 0u; }
@@ -184,7 +184,7 @@ uint8_t paramStoreTrack(const H7ToG0Packet* echo)
     return events;
 }
 
-void paramStoreFill(G0ToH7Packet* tx)
+void paramStoreFill(UiToH7Packet* tx)
 {
     tx->engineId    = engineId;
     tx->presetIndex = presetIndex;

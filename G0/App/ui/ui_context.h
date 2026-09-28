@@ -13,4 +13,4 @@ void uiTick(void);
 
 // Fills the payload of the next frame. False during BOOT, when no frame is sent and
 // the H7 holds its last applied state.
-bool uiFillFrame(G0ToH7Packet* tx);
+bool uiFillFrame(UiToH7Packet* tx);

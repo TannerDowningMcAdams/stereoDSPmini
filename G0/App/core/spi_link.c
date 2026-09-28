@@ -18,19 +18,19 @@
 #define FRAME_TRANSFER_US   132u
 
 // The packets are packed (alignment 1); the SPI DMA moves halfwords.
-static G0ToH7Packet txBuffers[2] __attribute__((aligned(4)));
-static H7ToG0Packet rxBuffers[2] __attribute__((aligned(4)));
+static UiToH7Packet txBuffers[2] __attribute__((aligned(4)));
+static H7ToUiPacket rxBuffers[2] __attribute__((aligned(4)));
 
 // txNext belongs to the thread while txNextReady is clear, and to the CC1 ISR while
 // it is set. txActive belongs to the ISR and the DMA.
-static G0ToH7Packet* txActive = &txBuffers[0];
-static G0ToH7Packet* txNext   = &txBuffers[1];
+static UiToH7Packet* txActive = &txBuffers[0];
+static UiToH7Packet* txNext   = &txBuffers[1];
 static volatile bool txNextReady = false;
 
 // rxReady belongs to the SPI ISR while rxReadyFull is clear, and to the thread while
 // it is set. rxActive belongs to the ISR and the DMA.
-static H7ToG0Packet* rxActive = &rxBuffers[0];
-static H7ToG0Packet* rxReady  = &rxBuffers[1];
+static H7ToUiPacket* rxActive = &rxBuffers[0];
+static H7ToUiPacket* rxReady  = &rxBuffers[1];
 static volatile bool rxReadyFull = false;
 
 static volatile uint32_t frameCount = 0;
@@ -40,7 +40,7 @@ static volatile uint32_t transferUs = FRAME_TRANSFER_US;
 static uint16_t frameSeq = 0;
 
 // Thread only.
-static H7ToG0Packet echo;
+static H7ToUiPacket echo;
 static bool echoValid = false;
 static uint32_t echoDeadline = 0;
 
@@ -56,7 +56,7 @@ void spiLinkStartFrame(void)
     if (txNextReady)
     {
         __DMB();    // acquire: flag read before the DMA reads the payload
-        G0ToH7Packet* sent = txActive;
+        UiToH7Packet* sent = txActive;
         txActive = txNext;
         txNext = sent;
         txNextReady = false;
@@ -84,14 +84,14 @@ uint32_t spiLinkNextEdgeUs(void)
     return frameStartUs + FRAME_PERIOD_US + transferUs;
 }
 
-G0ToH7Packet* spiLinkBeginTx(void)
+UiToH7Packet* spiLinkBeginTx(void)
 {
     return txNextReady ? NULL : txNext;
 }
 
 void spiLinkCommitTx(void)
 {
-    txNext->messageId   = SPI_MSG_ID_G0_TO_H7;
+    txNext->messageId   = SPI_MSG_ID_UI_TO_H7;
     txNext->version     = PROTOCOL_VERSION;
     txNext->g0FwVersion = G0_FW_VERSION;
     txNext->frameSeq    = frameSeq;
@@ -115,7 +115,7 @@ void spiLinkPoll(void)
     if (!rxReadyFull) { return; }
     __DMB();    // acquire: flag read before payload read
 
-    if (rxReady->messageId == SPI_MSG_ID_H7_TO_G0)
+    if (rxReady->messageId == SPI_MSG_ID_H7_TO_UI)
     {
         // Checked before the version: the magic keeps its position in every version.
         if (rxReady->bootloaderMagic == SPI_BOOTLOADER_MAGIC) { bootloaderRequest(); }
@@ -131,7 +131,7 @@ void spiLinkPoll(void)
     rxReadyFull = false;
 }
 
-const H7ToG0Packet* spiLinkEcho(void)
+const H7ToUiPacket* spiLinkEcho(void)
 {
     if (!echoValid) { return NULL; }
     if (deadlineExpired(echoDeadline))
@@ -150,7 +150,7 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
     // the next is 1 ms away.
     if (!rxReadyFull)
     {
-        H7ToG0Packet* received = rxActive;
+        H7ToUiPacket* received = rxActive;
         rxActive = rxReady;
         rxReady = received;
         __DMB();    // release
