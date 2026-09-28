@@ -5,9 +5,9 @@
  * apart from the fields spi_protocol.h keeps at fixed positions. */
 #define PROTOCOL_VERSION  3u
 
-/* The G0 image version. The H7 compares the running G0's report against this value,
- * which is also the version of the image embedded in the H7, and reprograms the G0
- * on a mismatch. Bump it with every G0 change that should reach the board. */
+/* The UI firmware version. The H7 compares the running UI MCU's report against this value,
+ * which is also the version of the image embedded in the H7, and reprograms the UI MCU
+ * on a mismatch. Bump it with every UI firmware change that should reach the board. */
 #define UI_FW_VERSION     7u
 
 #define H7_FW_VERSION     1u

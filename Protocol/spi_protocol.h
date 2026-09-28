@@ -4,34 +4,34 @@
 #include <assert.h>
 #include <stdint.h>
 
-/* Protocol v3 (ui-application-plan.md §5, §5.1). One frame each way every 1 ms, full
- * duplex, 16-bit words. The SPI hardware appends a CRC word; a frame that fails it
- * is dropped by the receiver, which keeps its last good values. */
+/* Protocol v3. One frame each way every 1 ms, full duplex, 16-bit words. The SPI
+ * hardware appends a CRC word; a frame that fails it is dropped by the receiver,
+ * which keeps its last good values. */
 #define SPI_PACKET_NUM_WORDS   32u
 
 #define SPI_MSG_ID_UI_TO_H7    0x5A9Fu
 #define SPI_MSG_ID_H7_TO_UI    0xA5F9u
 
-/* Accepted by the G0 on any CRC-valid H7 frame, whatever its version. */
+/* Accepted by the UI MCU on any CRC-valid H7 frame, whatever its version. */
 #define SPI_BOOTLOADER_MAGIC   0xB00710ADu
 
 #define SPI_PARAM_COUNT        8u
 
 /* Words 0-2 of UiToH7Packet and words 0-4 of H7ToUiPacket keep their positions in
- * every protocol version. They carry the version check and the G0 update path, which
+ * every protocol version. They carry the version check and the UI MCU update path, which
  * must keep working between boards built against different versions.
  *
  * Every field is naturally aligned, so the layout does not depend on the packing. */
 
-typedef struct __attribute__((packed)) {    /* G0 -> H7 */
+typedef struct __attribute__((packed)) {    /* UI MCU -> H7 */
     uint16_t messageId;                     /* SPI_MSG_ID_UI_TO_H7 */
     uint16_t version;                       /* PROTOCOL_VERSION */
     uint16_t uiFwVersion;                   /* UI_FW_VERSION */
     uint16_t frameSeq;
     uint16_t runFlags;                      /* RUN_FLAG_* */
-    uint16_t engineId;                      /* wanted engine, a level (plan §4.1); ENGINE_ID_NONE = none yet */
+    uint16_t engineId;                      /* wanted engine, a level; ENGINE_ID_NONE = none yet */
     uint8_t  presetIndex;                   /* 0..63, for the echo only */
-    uint8_t  engineQuery;                   /* registry index whose id the G0 wants */
+    uint8_t  engineQuery;                   /* registry index whose id the UI MCU wants */
     uint8_t  defaultsSeq;                   /* incremented to ask for the wanted engine's defaults */
     uint8_t  uiFlags;                       /* UI_FLAG_* */
     uint16_t param[SPI_PARAM_COUNT];        /* normalized 0..65535 */
@@ -43,12 +43,12 @@ typedef struct __attribute__((packed)) {    /* G0 -> H7 */
     uint16_t reserved[10];
 } UiToH7Packet;
 
-typedef struct __attribute__((packed)) {    /* H7 -> G0 */
+typedef struct __attribute__((packed)) {    /* H7 -> UI MCU */
     uint16_t messageId;                     /* SPI_MSG_ID_H7_TO_UI */
     uint16_t version;                       /* PROTOCOL_VERSION */
     uint32_t bootloaderMagic;               /* SPI_BOOTLOADER_MAGIC, or 0 */
     uint16_t h7FwVersion;                   /* H7_FW_VERSION */
-    uint16_t frameSeqEcho;                  /* frameSeq of the last valid G0 frame */
+    uint16_t frameSeqEcho;                  /* frameSeq of the last valid UI frame */
     uint16_t h7Flags;                       /* H7_FLAG_* */
     uint16_t activeEngine;                  /* ENGINE_ID_NONE while none is running */
     uint32_t engineDesc;                    /* descriptor of activeEngine, engine_link.h */
@@ -84,8 +84,8 @@ static_assert(sizeof(H7ToUiPacket) == SPI_PACKET_NUM_WORDS * 2u, "H7ToUiPacket m
 #define TEMPO_SRC_MIDI            2u
 
 /* uiFlags */
-/* A defaults request is outstanding: param[] and discrete are not yet the G0's state,
- * and the H7 ignores them. With this clear, defaultsSeq only records what the G0 has
+/* A defaults request is outstanding: param[] and discrete are not yet the UI MCU's state,
+ * and the H7 ignores them. With this clear, defaultsSeq only records what the UI MCU has
  * adopted, so an H7 that restarts does not mistake it for a request. */
 #define UI_FLAG_DEFAULTS_PENDING  (1u << 0)
 

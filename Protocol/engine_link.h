@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* The link-level parts of the engine model (plan §4.4). Engines are defined on the H7
- * only. The G0 treats an engine id as opaque and reaches the discrete fields through
- * the descriptor the H7 sends for the active engine. */
+/* The link-level parts of the engine model. Engines are defined on the H7 only. The
+ * UI MCU treats an engine id as opaque and reaches the discrete fields through the
+ * descriptor the H7 sends for the active engine. */
 
 #ifdef __cplusplus
 #define ENGINE_LINK_FN static constexpr
@@ -16,7 +16,7 @@
 
 #define ENGINE_ID_NONE              0x0000u
 
-/* MIDI CCs 103-111 reach at most 9 fields (plan §3.6). */
+/* MIDI CCs 103-111 reach at most 9 fields. */
 #define ENGINE_MAX_DISCRETE_FIELDS  9u
 #define ENGINE_MAX_FIELD_WIDTH      3u
 /* Field 0 is the mode field whenever modeOptions > 0. */
