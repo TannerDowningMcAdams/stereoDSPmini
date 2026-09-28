@@ -27,7 +27,7 @@ void System::init()
     const AnalogDryThru::Config dryConfig   { &hdac1, DAC_CHANNEL_1, &hopamp1 };
     const BypassController::Config bypassConfig { relayConfig, dryConfig,
                                                   Audio::kSampleRate, Audio::kBlockSize };
-    const G0Spi::Config         spiConfig   { &hspi2, G0_EXTI_Pin };
+    const UiSpi::Config         spiConfig   { &hspi2, G0_EXTI_Pin };
     const Audio::Config         audioConfig { &hsai_BlockA1, &hsai_BlockB1,
                                               { CODEC_NRST_GPIO_Port, CODEC_NRST_Pin } };
     static_assert(Audio::kBlockSize <= BypassController::kMaxBlockSize, "bypass scratch too small");
@@ -44,9 +44,9 @@ void System::init()
     // Pushed before SPI starts: pushControls() allows one producer, which is the SPI
     // ISR from here on. The defaults carry no engine params; the engine host supplies them.
     processor_.init({ Audio::kSampleRate, SystemCoreClock, &bypass_ });
-    processor_.pushControls(toProcessorControls(G0Spi::defaultControls(), 0u));
-    g0Spi_.init(spiConfig);
-    engineHost_.init({ &g0Spi_, &processor_, Audio::kSampleRate });
+    processor_.pushControls(toProcessorControls(UiSpi::defaultControls(), 0u));
+    uiSpi_.init(spiConfig);
+    engineHost_.init({ &uiSpi_, &processor_, Audio::kSampleRate });
 #if STEREODSPMINI_G0_IMAGE
     g0State_ = updateG0();
 #else
@@ -72,7 +72,7 @@ bool System::waitForG0(uint32_t windowMs, uint32_t framesBefore)
     const uint32_t start = HAL_GetTick();
     do
     {
-        if (g0Spi_.validFrameCount() > framesBefore && g0Spi_.uiFwVersion() == UI_FW_VERSION)
+        if (uiSpi_.validFrameCount() > framesBefore && uiSpi_.uiFwVersion() == UI_FW_VERSION)
         {
             return true;
         }
@@ -84,12 +84,12 @@ bool System::waitForG0(uint32_t windowMs, uint32_t framesBefore)
 bool System::waitForG0Silent(uint32_t windowMs)
 {
     const uint32_t start = HAL_GetTick();
-    uint32_t lastCount = g0Spi_.frameCount();
+    uint32_t lastCount = uiSpi_.frameCount();
     uint32_t lastEdge  = start;
     while ((HAL_GetTick() - start) < windowMs)
     {
         const uint32_t now   = HAL_GetTick();
-        const uint32_t count = g0Spi_.frameCount();
+        const uint32_t count = uiSpi_.frameCount();
         if (count != lastCount)
         {
             lastCount = count;
@@ -118,27 +118,27 @@ System::G0State System::updateG0()
     if (g0Bootloader_.init({ &huart3 }) != Status::OK) { return G0State::Failed; }
 
     const uint32_t start = HAL_GetTick();
-    while (!g0Spi_.uiSeen() && (HAL_GetTick() - start) < kG0LinkWindowMs) {}
+    while (!uiSpi_.uiSeen() && (HAL_GetTick() - start) < kG0LinkWindowMs) {}
 
-    const bool appRunning = g0Spi_.uiSeen();
+    const bool appRunning = uiSpi_.uiSeen();
     if (appRunning)
     {
-        if (g0Spi_.uiProtocolVersion() == PROTOCOL_VERSION && g0Spi_.uiFwVersion() == UI_FW_VERSION)
+        if (uiSpi_.uiProtocolVersion() == PROTOCOL_VERSION && uiSpi_.uiFwVersion() == UI_FW_VERSION)
         {
             return G0State::UpToDate;
         }
-        g0Spi_.setBootloaderRequest(true);
+        uiSpi_.setBootloaderRequest(true);
         (void) waitForG0Silent(kG0ResetWindowMs);
-        g0Spi_.setBootloaderRequest(false);
+        uiSpi_.setBootloaderRequest(false);
         // The transfer armed at the G0's last frame still holds the magic. Left in
         // place, the new image would receive it first and return to the bootloader.
-        g0Spi_.restartFrame();
+        uiSpi_.restartFrame();
     }
 
     // No app and no bootloader: nothing on the FFC, or MIDI claimed the bootloader first.
     if (!g0Bootloader_.probe(kG0ProbeWindowMs)) { return appRunning ? G0State::Failed : G0State::Absent; }
 
-    const uint32_t framesBefore = g0Spi_.validFrameCount();
+    const uint32_t framesBefore = uiSpi_.validFrameCount();
     Status status = g0Bootloader_.program(g0_image_start, g0ImageSize());
     if (status != Status::OK && g0Bootloader_.resync())
     {
@@ -156,10 +156,10 @@ void System::spiTxRxComplete()
 {
     // Only a valid frame drives anything. Until the G0's first one, the defaults
     // set in init() stand.
-    if (!g0Spi_.txRxComplete()) { return; }
+    if (!uiSpi_.txRxComplete()) { return; }
     // A G0 that reports in after the boot check, e.g. one released from a debugger.
     // Failed stays latched.
-    if (g0State_ == G0State::Absent && g0Spi_.uiFwVersion() == UI_FW_VERSION)
+    if (g0State_ == G0State::Absent && uiSpi_.uiFwVersion() == UI_FW_VERSION)
     {
         g0State_ = G0State::UpToDate;
     }
@@ -169,13 +169,13 @@ void System::spiTxRxComplete()
 // SPI completion, so they carry the edge their tempo phase refers to.
 void System::spiFrameEnd()
 {
-    if (!g0Spi_.onFrameEnd() || !g0Confirmed()) { return; }
+    if (!uiSpi_.onFrameEnd() || !g0Confirmed()) { return; }
 
     // A refused set is dropped: the next frame, 1 ms later, is fresher.
-    (void) processor_.pushControls(toProcessorControls(g0Spi_.controls(), g0Spi_.frameEdgeCycles()));
+    (void) processor_.pushControls(toProcessorControls(uiSpi_.controls(), uiSpi_.frameEdgeCycles()));
 }
 
-ProcessorControls System::toProcessorControls(const G0Spi::Controls& controls, uint32_t edgeCycles)
+ProcessorControls System::toProcessorControls(const UiSpi::Controls& controls, uint32_t edgeCycles)
 {
     ProcessorControls out;
     out.engineId = controls.engineId;

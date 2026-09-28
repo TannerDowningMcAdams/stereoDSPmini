@@ -2,7 +2,7 @@
 #include "audio.hpp"
 #include "audio_buffer.hpp"
 #include "bypass_controller.hpp"
-#include "g0_spi.hpp"
+#include "ui_spi.hpp"
 #include "g0_bootloader.hpp"
 #include "engine_host.hpp"
 #include "processor.hpp"
@@ -33,13 +33,13 @@ public:
     inline void audioTxComplete()       { audio_.txComplete(); }
     inline void audioErrorCallback(SAI_HandleTypeDef* hsai) { audio_.audioErrorHandler(hsai); }
     void spiTxRxComplete();
-    void spiErrorCallback()             { g0Spi_.spiErrorHandler(); }
+    void spiErrorCallback()             { uiSpi_.spiErrorHandler(); }
     void spiFrameEnd();
 
 private:
 
     Audio audio_;
-    G0Spi g0Spi_;
+    UiSpi uiSpi_;
     G0Bootloader g0Bootloader_;
     // Covers a G0 that enters its bootloader at power-up: its app boot, debounce and reset.
     static constexpr uint32_t kG0ProbeWindowMs = 250u;
@@ -65,6 +65,6 @@ private:
     bool g0Confirmed() const;
     bool waitForG0(uint32_t windowMs, uint32_t framesBefore);
     bool waitForG0Silent(uint32_t windowMs);
-    static ProcessorControls toProcessorControls(const G0Spi::Controls& controls, uint32_t edgeCycles);
+    static ProcessorControls toProcessorControls(const UiSpi::Controls& controls, uint32_t edgeCycles);
 
 } ;

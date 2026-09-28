@@ -1,4 +1,4 @@
-#include "g0_spi.hpp"
+#include "ui_spi.hpp"
 #include "engine_registry.hpp"
 #include "protocol_version.h"
 #include <cstdint>
@@ -10,11 +10,11 @@ extern "C" {
 }
 #endif
 
-UNCACHED_RAM UiToH7Packet G0Spi::rxPacketDMA_;
-UNCACHED_RAM H7ToUiPacket G0Spi::txPacketDMA_;
+UNCACHED_RAM UiToH7Packet UiSpi::rxPacketDMA_;
+UNCACHED_RAM H7ToUiPacket UiSpi::txPacketDMA_;
 
 // The DWT cycle counter stamps each CS edge; System::init() starts it.
-void G0Spi::init(const Config& config)
+void UiSpi::init(const Config& config)
 {
     controls_ = defaultControls();
 
@@ -23,7 +23,7 @@ void G0Spi::init(const Config& config)
 }
 
 // The engine's own values come from the engine host through setApplied().
-G0Spi::Controls G0Spi::defaultControls()
+UiSpi::Controls UiSpi::defaultControls()
 {
     Controls controls {};
     controls.engineId = ENGINE_ID_NONE;
@@ -31,12 +31,12 @@ G0Spi::Controls G0Spi::defaultControls()
     return controls;
 }
 
-void G0Spi::restartFrame()
+void UiSpi::restartFrame()
 {
     EXTI->SWIER1 = config_.csPin;
 }
 
-bool G0Spi::request(Request& out) const
+bool UiSpi::request(Request& out) const
 {
     // An ISR that lands during the copy moves the count, and the copy is retried.
     uint32_t count;
@@ -50,7 +50,7 @@ bool G0Spi::request(Request& out) const
     return count != 0u;
 }
 
-void G0Spi::publishEngine(const EngineStatus& status)
+void UiSpi::publishEngine(const EngineStatus& status)
 {
     const uint8_t next = static_cast<uint8_t>(engineStatusIndex_ ^ 1u);
     engineStatus_[next] = status;
@@ -58,7 +58,7 @@ void G0Spi::publishEngine(const EngineStatus& status)
     engineStatusIndex_ = next;
 }
 
-bool G0Spi::setApplied(const uint16_t* param, uint16_t discrete, uint8_t defaultsSeq)
+bool UiSpi::setApplied(const uint16_t* param, uint16_t discrete, uint8_t defaultsSeq)
 {
     if (appliedReady_) { return false; }
 
@@ -70,7 +70,7 @@ bool G0Spi::setApplied(const uint16_t* param, uint16_t discrete, uint8_t default
     return true;
 }
 
-bool G0Spi::txRxComplete()
+bool UiSpi::txRxComplete()
 {
     // Parsed before onFrameEnd() re-arms into this buffer. Both run at priority 2,
     // so that cannot preempt this.
@@ -89,7 +89,7 @@ bool G0Spi::txRxComplete()
     return true;
 }
 
-void G0Spi::parse()
+void UiSpi::parse()
 {
     const UiToH7Packet& rx = rxPacketDMA_;
     frameSeq_              = rx.frameSeq;
@@ -122,7 +122,7 @@ void G0Spi::parse()
 
 // At every frame end, valid or not. A G0 in its BOOT context sends no valid frames,
 // and must still see the values of an engine switch that completes meanwhile.
-void G0Spi::takeApplied()
+void UiSpi::takeApplied()
 {
     if (!appliedReady_) { return; }
     __DMB();    // acquire: flag read before payload read
@@ -133,12 +133,12 @@ void G0Spi::takeApplied()
     appliedReady_ = false;
 }
 
-bool G0Spi::linkUp() const
+bool UiSpi::linkUp() const
 {
     return validFrameCount_ != 0u && (HAL_GetTick() - lastValidMs_) < kLinkTimeoutMs;
 }
 
-void G0Spi::buildTx()
+void UiSpi::buildTx()
 {
     const EngineStatus& status = engineStatus_[engineStatusIndex_];
     H7ToUiPacket& tx = txPacketDMA_;
@@ -167,7 +167,7 @@ void G0Spi::buildTx()
     __DMB();
 }
 
-Status G0Spi::arm()
+Status UiSpi::arm()
 {
     return fromHAL(HAL_SPI_TransmitReceive_DMA(config_.spi,
                                                reinterpret_cast<uint8_t*>(&txPacketDMA_),
@@ -177,13 +177,13 @@ Status G0Spi::arm()
 
 // Every HAL error path (CRC, overrun, mode fault, DMA) has already stopped the
 // transfer and left the handle READY by the time this runs.
-void G0Spi::spiErrorHandler()
+void UiSpi::spiErrorHandler()
 {
     errors_     = errors_ | HAL_SPI_GetError(config_.spi);
     errorCount_ = errorCount_ + 1u;
 }
 
-bool G0Spi::onFrameEnd()
+bool UiSpi::onFrameEnd()
 {
     const uint32_t edge = DWT->CYCCNT;
 

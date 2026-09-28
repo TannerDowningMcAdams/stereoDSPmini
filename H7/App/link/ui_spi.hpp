@@ -11,7 +11,7 @@ extern "C" {
 
 #include <cstdint>
 
-class G0Spi {
+class UiSpi {
 public:
 
     struct Config
@@ -59,8 +59,8 @@ public:
         uint8_t  activeIndex;
     };
 
-    G0Spi() = default;
-    ~G0Spi() = default;
+    UiSpi() = default;
+    ~UiSpi() = default;
 
     static constexpr uint16_t kSpiPacketWords = SPI_PACKET_NUM_WORDS;
     // Well above a G0 flash page erase (20-40 ms of dropped frames).

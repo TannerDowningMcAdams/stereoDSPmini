@@ -2,7 +2,7 @@
 
 #include "engine.hpp"
 #include "engine_arena.hpp"
-#include "g0_spi.hpp"
+#include "ui_spi.hpp"
 #include "processor.hpp"
 #include <cstdint>
 
@@ -18,7 +18,7 @@ public:
 
     struct Config
     {
-        G0Spi*     link;
+        UiSpi*     link;
         Processor* processor;
         uint32_t   sampleRate;
     };
@@ -50,8 +50,8 @@ private:
     uint16_t     appliedParam_[SPI_PARAM_COUNT] = {};
     uint16_t     appliedDiscrete_ = 0;
 
-    void handleRequest(const G0Spi::Request& request);
-    void swap(const G0Spi::Request* request);
+    void handleRequest(const UiSpi::Request& request);
+    void swap(const UiSpi::Request* request);
     void activateActive();
     void takeDefaults();
     void publish(uint16_t flags);

@@ -21,7 +21,7 @@ void EngineHost::init(const Config& config)
 
 void EngineHost::poll()
 {
-    G0Spi::Request request;
+    UiSpi::Request request;
     const bool haveRequest = config_.link->request(request);
 
     switch (state_)
@@ -45,7 +45,7 @@ void EngineHost::poll()
     }
 }
 
-void EngineHost::handleRequest(const G0Spi::Request& request)
+void EngineHost::handleRequest(const UiSpi::Request& request)
 {
     // With no request outstanding, defaultsSeq is what the G0 has adopted. Taking it
     // here means a restarted H7 does not mistake it for a new request.
@@ -82,7 +82,7 @@ void EngineHost::handleRequest(const G0Spi::Request& request)
 }
 
 // The engine is parked: PendSV no longer calls it.
-void EngineHost::swap(const G0Spi::Request* request)
+void EngineHost::swap(const UiSpi::Request* request)
 {
     active_->deactivate();
     arenas_.reset();
@@ -128,7 +128,7 @@ void EngineHost::activateActive()
 
 void EngineHost::publish(uint16_t flags)
 {
-    G0Spi::EngineStatus status {};
+    UiSpi::EngineStatus status {};
     status.descriptor  = active_->info().descriptor();
     status.activeId    = active_->id();
     status.targetId    = EngineRegistry::idAt(targetIndex_);

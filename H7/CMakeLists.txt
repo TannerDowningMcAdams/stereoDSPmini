@@ -72,7 +72,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/hardware/analog_dry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/hardware/relay.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/link/g0_bootloader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/App/link/g0_spi.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/link/ui_spi.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/system/app_main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/system/callbacks.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/App/system/status.cpp
