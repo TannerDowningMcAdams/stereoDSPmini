@@ -44,7 +44,7 @@ public:
     {
         uint16_t engineId;
         uint8_t  defaultsSeq;
-        bool     defaultsPending;           // G0_FLAG_DEFAULTS_PENDING
+        bool     defaultsPending;           // UI_FLAG_DEFAULTS_PENDING
         uint16_t param[SPI_PARAM_COUNT];    // as sent, whatever the engine
         uint16_t discrete;
     };
@@ -105,9 +105,9 @@ public:
 
     // From any CRC-valid G0 frame, whatever its protocol version, so the H7 can
     // detect a G0 that needs reprogramming.
-    bool     g0Seen()            const { return g0Seen_; }
-    uint16_t g0ProtocolVersion() const { return g0ProtocolVersion_; }
-    uint16_t g0FwVersion()       const { return g0FwVersion_; }
+    bool     uiSeen()            const { return uiSeen_; }
+    uint16_t uiProtocolVersion() const { return uiProtocolVersion_; }
+    uint16_t uiFwVersion()       const { return uiFwVersion_; }
 
     Status   status()     const { return status_; }
     uint32_t errorCount() const { return errorCount_; }
@@ -162,9 +162,9 @@ private:
     bool              frameValid_      = false;   // set by txRxComplete(), taken by onFrameEnd()
     uint16_t          frameSeq_        = 0;
 
-    volatile bool     g0Seen_            = false;
-    volatile uint16_t g0ProtocolVersion_ = 0;
-    volatile uint16_t g0FwVersion_       = 0;
+    volatile bool     uiSeen_            = false;
+    volatile uint16_t uiProtocolVersion_ = 0;
+    volatile uint16_t uiFwVersion_       = 0;
 
     volatile bool     bootloaderRequest_ = false;
 

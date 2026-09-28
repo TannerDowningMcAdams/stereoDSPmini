@@ -77,9 +77,9 @@ bool G0Spi::txRxComplete()
     if (rxPacketDMA_.messageId != SPI_MSG_ID_UI_TO_H7) { return false; }
 
     // Recorded whatever the version: a G0 on another protocol is one to reprogram.
-    g0ProtocolVersion_ = rxPacketDMA_.version;
-    g0FwVersion_       = rxPacketDMA_.g0FwVersion;
-    g0Seen_            = true;
+    uiProtocolVersion_ = rxPacketDMA_.version;
+    uiFwVersion_       = rxPacketDMA_.uiFwVersion;
+    uiSeen_            = true;
     if (rxPacketDMA_.version != PROTOCOL_VERSION) { return false; }
 
     parse();
@@ -102,7 +102,7 @@ void G0Spi::parse()
     controls_.frameSeq     = rx.frameSeq;
     engineQuery_           = rx.engineQuery;
 
-    const bool pending = (rx.g0Flags & G0_FLAG_DEFAULTS_PENDING) != 0u;
+    const bool pending = (rx.uiFlags & UI_FLAG_DEFAULTS_PENDING) != 0u;
     request_.engineId        = rx.engineId;
     request_.defaultsSeq     = rx.defaultsSeq;
     request_.defaultsPending = pending;

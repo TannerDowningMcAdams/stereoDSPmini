@@ -26,14 +26,14 @@
 typedef struct __attribute__((packed)) {    /* G0 -> H7 */
     uint16_t messageId;                     /* SPI_MSG_ID_UI_TO_H7 */
     uint16_t version;                       /* PROTOCOL_VERSION */
-    uint16_t g0FwVersion;                   /* G0_FW_VERSION */
+    uint16_t uiFwVersion;                   /* UI_FW_VERSION */
     uint16_t frameSeq;
     uint16_t runFlags;                      /* RUN_FLAG_* */
     uint16_t engineId;                      /* wanted engine, a level (plan §4.1); ENGINE_ID_NONE = none yet */
     uint8_t  presetIndex;                   /* 0..63, for the echo only */
     uint8_t  engineQuery;                   /* registry index whose id the G0 wants */
     uint8_t  defaultsSeq;                   /* incremented to ask for the wanted engine's defaults */
-    uint8_t  g0Flags;                       /* G0_FLAG_* */
+    uint8_t  uiFlags;                       /* UI_FLAG_* */
     uint16_t param[SPI_PARAM_COUNT];        /* normalized 0..65535 */
     uint16_t discrete;                      /* fields per the engine descriptor, engine_link.h */
     uint16_t eventToggles;                  /* each occurrence flips its bit */
@@ -83,11 +83,11 @@ static_assert(sizeof(H7ToUiPacket) == SPI_PACKET_NUM_WORDS * 2u, "H7ToUiPacket m
 #define TEMPO_SRC_INTERNAL        1u            /* tap or preset recall */
 #define TEMPO_SRC_MIDI            2u
 
-/* g0Flags */
+/* uiFlags */
 /* A defaults request is outstanding: param[] and discrete are not yet the G0's state,
  * and the H7 ignores them. With this clear, defaultsSeq only records what the G0 has
  * adopted, so an H7 that restarts does not mistake it for a request. */
-#define G0_FLAG_DEFAULTS_PENDING  (1u << 0)
+#define UI_FLAG_DEFAULTS_PENDING  (1u << 0)
 
 /* h7Flags */
 #define H7_FLAG_STATE_VALID       (1u << 0)     /* the echo holds a state applied since H7 boot */

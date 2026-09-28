@@ -93,7 +93,7 @@ void spiLinkCommitTx(void)
 {
     txNext->messageId   = SPI_MSG_ID_UI_TO_H7;
     txNext->version     = PROTOCOL_VERSION;
-    txNext->g0FwVersion = G0_FW_VERSION;
+    txNext->uiFwVersion = UI_FW_VERSION;
     txNext->frameSeq    = frameSeq;
     frameSeq = (uint16_t) (frameSeq + 1u);
     __DMB();    // release: payload visible before the flag that publishes it

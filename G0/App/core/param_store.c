@@ -190,7 +190,7 @@ void paramStoreFill(UiToH7Packet* tx)
     tx->presetIndex = presetIndex;
     tx->engineQuery = engineQuery;
     tx->defaultsSeq = defaultsSeq;
-    tx->g0Flags     = defaultsPending ? G0_FLAG_DEFAULTS_PENDING : 0u;
+    tx->uiFlags     = defaultsPending ? UI_FLAG_DEFAULTS_PENDING : 0u;
     for (uint32_t i = 0; i < SPI_PARAM_COUNT; i++) { tx->param[i] = param[i]; }
     tx->discrete  = discrete;
     tx->ownerMask = ownerMask;

@@ -72,7 +72,7 @@ bool System::waitForG0(uint32_t windowMs, uint32_t framesBefore)
     const uint32_t start = HAL_GetTick();
     do
     {
-        if (g0Spi_.validFrameCount() > framesBefore && g0Spi_.g0FwVersion() == G0_FW_VERSION)
+        if (g0Spi_.validFrameCount() > framesBefore && g0Spi_.uiFwVersion() == UI_FW_VERSION)
         {
             return true;
         }
@@ -118,12 +118,12 @@ System::G0State System::updateG0()
     if (g0Bootloader_.init({ &huart3 }) != Status::OK) { return G0State::Failed; }
 
     const uint32_t start = HAL_GetTick();
-    while (!g0Spi_.g0Seen() && (HAL_GetTick() - start) < kG0LinkWindowMs) {}
+    while (!g0Spi_.uiSeen() && (HAL_GetTick() - start) < kG0LinkWindowMs) {}
 
-    const bool appRunning = g0Spi_.g0Seen();
+    const bool appRunning = g0Spi_.uiSeen();
     if (appRunning)
     {
-        if (g0Spi_.g0ProtocolVersion() == PROTOCOL_VERSION && g0Spi_.g0FwVersion() == G0_FW_VERSION)
+        if (g0Spi_.uiProtocolVersion() == PROTOCOL_VERSION && g0Spi_.uiFwVersion() == UI_FW_VERSION)
         {
             return G0State::UpToDate;
         }
@@ -159,7 +159,7 @@ void System::spiTxRxComplete()
     if (!g0Spi_.txRxComplete()) { return; }
     // A G0 that reports in after the boot check, e.g. one released from a debugger.
     // Failed stays latched.
-    if (g0State_ == G0State::Absent && g0Spi_.g0FwVersion() == G0_FW_VERSION)
+    if (g0State_ == G0State::Absent && g0Spi_.uiFwVersion() == UI_FW_VERSION)
     {
         g0State_ = G0State::UpToDate;
     }
