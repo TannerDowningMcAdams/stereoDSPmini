@@ -16,6 +16,8 @@ void potUpdate(uint8_t index, uint16_t raw);
 
 // Re-takes every baseline: on preset apply, state restore and entering settings.
 void potRebaseline(void);
+// One pot, when MIDI takes its param over.
+void potRebaselineOne(uint8_t index);
 
 bool     potMoved(uint8_t index);
 // Normalized 0..65535, with a small dead zone at each end so both extremes are reachable.

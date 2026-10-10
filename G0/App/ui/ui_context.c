@@ -4,6 +4,7 @@
 #include "engine_link.h"
 #include "gesture.h"
 #include "led.h"
+#include "midi_map.h"
 #include "param_store.h"
 #include "pot.h"
 #include "settings.h"
@@ -80,6 +81,7 @@ void uiInit(void)
     paramStoreInit();
     settingsInit();
     tempoSetFollowMidi(settingsFollowMidiClock());
+    midiSetChannel(settingsMidiChannel(), settingsMidiOmni());
 }
 
 static void showError(void)
@@ -368,6 +370,7 @@ static void leaveSettings(bool save)
     {
         if (!settingsSave()) { showError(); }
         tempoSetFollowMidi(settingsFollowMidiClock());
+        midiSetChannel(settingsMidiChannel(), settingsMidiOmni());
     }
     context = CONTEXT_BYPASS;
     potRebaseline();
@@ -433,6 +436,69 @@ static void applyPots(void)
     {
         if (potMoved(i)) { paramStoreSetParam(kBoard.pots[i].paramIndex, potValue(i)); }
     }
+}
+
+// A pot that has moved writes its param on every tick, so a CC for that param holds
+// only once the pot is back behind its takeover threshold.
+static void releasePots(uint8_t param)
+{
+    for (uint8_t i = 0; i < kBoard.numPots; i++)
+    {
+        if (kBoard.pots[i].paramIndex == param) { potRebaselineOne(i); }
+    }
+}
+
+// The engaged state stays. In a menu, the menu is left first, as an abort leaves it.
+static void midiLoad(uint16_t program)
+{
+    if (program >= STORAGE_PRESET_SLOTS) { return; }
+    if (inMenu()) { leaveMenu(); }
+    recall((uint8_t) program);
+    potRebaseline();
+}
+
+static void handleMidiAction(const MidiAction* action)
+{
+    switch (action->type)
+    {
+        case MIDI_ACTION_LOAD:
+            midiLoad(action->value);
+            break;
+        case MIDI_ACTION_ENGAGE:
+            if (context == CONTEXT_BYPASS && action->value != 0u)   { context = CONTEXT_RUN; }
+            else if (context == CONTEXT_RUN && action->value == 0u) { context = CONTEXT_BYPASS; }
+            break;
+        case MIDI_ACTION_FIELD:
+            // Ignored while the engine loads, as the mode switch is.
+            paramStoreSetField(action->index, (uint8_t) action->value);
+            break;
+        case MIDI_ACTION_PARAM:
+            paramStoreSetParam(action->index, action->value);
+            releasePots(action->index);
+            break;
+        default:
+            break;
+    }
+}
+
+void uiMidi(const MidiMessage* message, uint32_t atUs)
+{
+    switch (message->status)
+    {
+        case MIDI_CLOCK:    tempoMidiClock(atUs);  return;
+        case MIDI_START:    tempoMidiStart();      return;
+        case MIDI_CONTINUE: tempoMidiContinue();   return;
+        case MIDI_STOP:     tempoMidiStop();       return;
+        case MIDI_SONG_POSITION:
+            tempoMidiSongPosition((uint16_t) (message->data1 | ((uint16_t) message->data2 << 7)));
+            return;
+        default:
+            break;
+    }
+
+    if (context == CONTEXT_BOOT || context == CONTEXT_SETTINGS) { return; }
+    MidiAction action;
+    if (midiMap(message, paramStoreDesc(), &action)) { handleMidiAction(&action); }
 }
 
 // A pot past the takeover threshold sets the option under it, in equal shares of its

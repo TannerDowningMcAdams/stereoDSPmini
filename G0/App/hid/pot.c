@@ -42,11 +42,14 @@ void potUpdate(uint8_t index, uint16_t raw)
 
 void potRebaseline(void)
 {
-    for (uint8_t i = 0; i < potCount; i++)
-    {
-        pots[i].baseline = pots[i].held;
-        pots[i].moved = false;
-    }
+    for (uint8_t i = 0; i < potCount; i++) { potRebaselineOne(i); }
+}
+
+void potRebaselineOne(uint8_t index)
+{
+    if (index >= potCount) { return; }
+    pots[index].baseline = pots[index].held;
+    pots[index].moved = false;
 }
 
 bool potMoved(uint8_t index)
