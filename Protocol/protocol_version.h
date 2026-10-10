@@ -8,7 +8,7 @@
 /* The UI firmware version. The H7 compares the running UI MCU's report against this value,
  * which is also the version of the image embedded in the H7, and reprograms the UI MCU
  * on a mismatch. Bump it with every UI firmware change that should reach the board. */
-#define UI_FW_VERSION     8u
+#define UI_FW_VERSION     9u
 
 #define H7_FW_VERSION     1u
 

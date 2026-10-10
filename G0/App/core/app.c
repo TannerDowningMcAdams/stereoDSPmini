@@ -5,6 +5,8 @@
 #include "gesture.h"
 #include "led.h"
 #include "main.h"
+#include "midi.h"
+#include "midi_uart.h"
 #include "pot.h"
 #include "spi_link.h"
 #include "storage.h"
@@ -55,11 +57,13 @@ void appInit(void)
     gestureInit(boardSwitchIndex(SWITCH_ROLE_ON), boardSwitchIndex(SWITCH_ROLE_AUX),
                 boardSwitchIndex(SWITCH_ROLE_MODE_UP), boardSwitchIndex(SWITCH_ROLE_MODE_DOWN));
     potInit(kBoard.numPots);
+    midiInit();
 
     timebaseInit();
     tempoInit();
     ledInit();
     uiInit();
+    midiUartInit();
 
     HAL_ADCEx_Calibration_Start(&hadc1);
     // numPots must equal the number of ranks CubeMX configures.
@@ -90,6 +94,19 @@ static void readPots(void)
     for (uint8_t i = 0; i < kBoard.numPots; i++) { potUpdate(i, potAdcBufferDMA[kBoard.pots[i].adcIndex]); }
 }
 
+// A byte is dated by the bytes received after it, at MIDI_BYTE_US each, which keeps
+// clock timing close when the ring holds a burst or a flash erase stalled the thread.
+static void readMidi(uint32_t nowUs)
+{
+    uint16_t after = midiUartAvailable();
+    while (after > 0u)
+    {
+        after--;
+        MidiMessage message;
+        if (midiParse(midiUartRead(), &message)) { uiMidi(&message, nowUs - after * MIDI_BYTE_US); }
+    }
+}
+
 static void buildFrame(void)
 {
     UiToH7Packet* tx = spiLinkBeginTx();
@@ -101,6 +118,7 @@ static void appTick(void)
     const uint32_t nowUs = timebaseNowUs();
     spiLinkPoll();
     switchPoll(readSwitches(), nowUs);
+    readMidi(nowUs);
     tempoPoll(nowUs);
     readPots();
     uiTick();
