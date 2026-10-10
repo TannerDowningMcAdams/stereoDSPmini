@@ -3,8 +3,9 @@
 #include "spi_protocol.h"
 #include <stdbool.h>
 
-// The UI contexts of plan §3.3: BOOT, then BYPASS, RUN, and the RECALL, STORE and
-// ENGINE menus. SETTINGS arrives with M5. The live state it sends is param_store's.
+// The UI contexts: BOOT, then BYPASS, RUN, the RECALL, STORE and ENGINE menus, and
+// SETTINGS, which only a cold boot with ON held enters. The live state it sends is
+// param_store's.
 
 void uiInit(void);
 

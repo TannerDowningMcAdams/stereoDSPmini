@@ -6,6 +6,7 @@
 #include "led.h"
 #include "param_store.h"
 #include "pot.h"
+#include "settings.h"
 #include "spi_link.h"
 #include "storage.h"
 #include "tempo.h"
@@ -13,10 +14,6 @@
 
 // The H7 answers the G0's first frame; this covers a few dropped ones.
 #define BOOT_ECHO_WAIT_MS   50u
-
-// Until settings (M5): true bypass, digital dry, stereo in. Build with
-// RUN_FLAG_TRAILS and/or RUN_FLAG_ANALOG_DRY added to test the other modes.
-#define DEFAULT_RUN_FLAGS   (RUN_FLAG_STEREO_IN)
 
 #define LED_FULL            255u
 
@@ -33,6 +30,7 @@
 #define LOADING_BLINK_MS    200u
 #define ERROR_BLINK_MS      120u
 #define ERROR_BLINKS        4u
+#define OPTION_SHOW_MS      1000u       // a moved settings pot shows its option
 
 typedef enum {
     CONTEXT_BOOT,
@@ -40,7 +38,8 @@ typedef enum {
     CONTEXT_RUN,
     CONTEXT_RECALL,
     CONTEXT_STORE,
-    CONTEXT_ENGINE
+    CONTEXT_ENGINE,
+    CONTEXT_SETTINGS
 } UiContext;
 
 static UiContext context = CONTEXT_BOOT;
@@ -64,12 +63,23 @@ static uint32_t  confirmStartMs;
 static bool      errorShowing;
 static bool      errorRestart;
 
+// SETTINGS state. A pot edits its setting once it has moved on this page.
+static uint8_t   settingsPage;
+static uint8_t   potsTaken;
+static bool      optionShowing;
+static uint8_t   optionValue;
+static uint32_t  optionStartMs;
+
+_Static_assert(SETTINGS_POTS <= 8u, "potsTaken holds one bit per settings pot");
+
 void uiInit(void)
 {
     onLed  = boardPwmLedIndex(SWITCH_ROLE_ON);
     auxLed = boardPwmLedIndex(SWITCH_ROLE_AUX);
     bootDeadline = deadlineSet(BOOT_ECHO_WAIT_MS);
     paramStoreInit();
+    settingsInit();
+    tempoSetFollowMidi(settingsFollowMidiClock());
 }
 
 static void showError(void)
@@ -123,6 +133,18 @@ static void enterFavourite(void)
     context = CONTEXT_BYPASS;
 }
 
+// Cold boot with ON held. The favourite is already loading, unengaged, so leaving
+// is only a change of context.
+static void enterSettings(void)
+{
+    settingsBeginEdit();
+    context       = CONTEXT_SETTINGS;
+    settingsPage  = 0u;
+    potsTaken     = 0u;
+    optionShowing = false;
+    countRestart  = true;
+}
+
 // Warm reset: resume from the state the H7 last applied (plan §4.3).
 static void adoptEcho(const H7ToUiPacket* echo)
 {
@@ -144,7 +166,12 @@ static void adoptEcho(const H7ToUiPacket* echo)
 
 static void resolveBoot(void)
 {
-    if (bootWasCold()) { enterFavourite(); return; }
+    if (bootWasCold())
+    {
+        enterFavourite();
+        if (bootWantsSettings()) { enterSettings(); }
+        return;
+    }
 
     const H7ToUiPacket* echo = spiLinkEcho();
     const uint16_t ready = H7_FLAG_STATE_VALID | H7_FLAG_ENGINE_READY;
@@ -334,6 +361,44 @@ static void handleMenu(const Gesture* gesture)
     }
 }
 
+// Both ways out land in BYPASS with the favourite, as a cold boot without ON does.
+static void leaveSettings(bool save)
+{
+    if (save)
+    {
+        if (!settingsSave()) { showError(); }
+        tempoSetFollowMidi(settingsFollowMidiClock());
+    }
+    context = CONTEXT_BYPASS;
+    potRebaseline();
+}
+
+// Clamped, as the mode options are. A pot moved on the last page must not write the
+// setting it has on this one, so the baselines are re-taken.
+static void stepSettingsPage(int8_t direction)
+{
+    if (direction > 0 && settingsPage + 1u < SETTINGS_PAGES_USED) { settingsPage++; }
+    else if (direction < 0 && settingsPage > 0u)                 { settingsPage--; }
+    else                                                         { countRestart = true; return; }
+    potsTaken     = 0u;
+    optionShowing = false;
+    countRestart  = true;
+    potRebaseline();
+}
+
+static void handleSettings(const Gesture* gesture)
+{
+    switch (gesture->type)
+    {
+        case GESTURE_ON_HOLD:   leaveSettings(true);   break;
+        case GESTURE_AUX_HOLD:  leaveSettings(false);  break;
+        case GESTURE_MODE_UP:   stepSettingsPage(1);   break;
+        case GESTURE_MODE_DOWN: stepSettingsPage(-1);  break;
+        default:
+            break;
+    }
+}
+
 static void handleGesture(const Gesture* gesture)
 {
     switch (context)
@@ -348,6 +413,9 @@ static void handleGesture(const Gesture* gesture)
         case CONTEXT_STORE:
         case CONTEXT_ENGINE:
             handleMenu(gesture);
+            break;
+        case CONTEXT_SETTINGS:
+            handleSettings(gesture);
             break;
         default:
             break;
@@ -364,6 +432,29 @@ static void applyPots(void)
     for (uint8_t i = 0; i < kBoard.numPots; i++)
     {
         if (potMoved(i)) { paramStoreSetParam(kBoard.pots[i].paramIndex, potValue(i)); }
+    }
+}
+
+// A pot past the takeover threshold sets the option under it, in equal shares of its
+// travel, and shows the option while it changes.
+static void applySettingsPots(void)
+{
+    const uint8_t pots = (kBoard.numPots < SETTINGS_POTS) ? kBoard.numPots : SETTINGS_POTS;
+    for (uint8_t i = 0; i < pots; i++)
+    {
+        const uint8_t options = settingsOptions(settingsPage, i);
+        if (options == 0u || !potMoved(i)) { continue; }
+        const uint8_t option = (uint8_t) (((uint32_t) potValue(i) * options) >> 16);
+        const bool    taken  = (potsTaken & (1u << i)) != 0u;
+        if (taken && option == settingsEditValue(settingsPage, i)) { continue; }
+
+        potsTaken |= (uint8_t) (1u << i);
+        settingsEditSet(settingsPage, i, option);
+        // The channel bits show as the live channel instead.
+        if (settingsPage == SETTINGS_PAGE_MIDI && i < SETTINGS_CHANNEL_BITS) { continue; }
+        optionShowing = true;
+        optionValue   = option;
+        optionStartMs = timebaseNowMs();
     }
 }
 
@@ -447,6 +538,25 @@ static void renderPerformancePwm(void)
     else                    { setOnLed(run ? &on : &off); }
 }
 
+// PWM LEDs in SETTINGS: ON solid, and AUX blinks the page number on entry and on each
+// page step, since the MIDI page fills the small LEDs with the channel.
+static void renderSettingsPwm(void)
+{
+    const LedPattern off = { LED_OFF, 0u, 0u, 0u };
+    const LedPattern on  = { LED_ON, LED_FULL, 0u, 0u };
+    setOnLed(&on);
+    if (countRestart)
+    {
+        countRestart = false;
+        countShowing = true;
+        ledPwmSet(auxLed, &off);
+    }
+    if (countShowing && ledPwmDone(auxLed)) { countShowing = false; }
+
+    const LedPattern count = { LED_BLINK_N, LED_FULL, COUNT_BLINK_MS, (uint8_t) (settingsPage + 1u) };
+    ledPwmSet(auxLed, countShowing ? &count : &off);
+}
+
 static uint8_t smallLeds(void)
 {
     if (confirming)
@@ -454,6 +564,14 @@ static uint8_t smallLeds(void)
         const uint32_t elapsed = timebaseNowMs() - confirmStartMs;
         if (elapsed < CONFIRM_MS) { return ((elapsed / CONFIRM_FLASH_MS) & 1u) ? 0x0u : 0xFu; }
         confirming = false;
+    }
+    if (context == CONTEXT_SETTINGS)
+    {
+        // One-hot, so option 0 still lights an LED.
+        if (optionShowing && timebaseNowMs() - optionStartMs < OPTION_SHOW_MS) { return (uint8_t) (1u << optionValue); }
+        optionShowing = false;
+        if (settingsPage == SETTINGS_PAGE_MIDI) { return settingsEditMidiChannel(); }
+        return (uint8_t) (1u << settingsPage);
     }
     if (inMenu())
     {
@@ -475,10 +593,19 @@ static void renderLeds(void)
         (void) beatLit();   // keeps tracking the phase
         renderMenuPwm();
     }
+    else if (context == CONTEXT_SETTINGS)
+    {
+        (void) beatLit();
+        renderSettingsPwm();
+    }
     else
     {
         renderPerformancePwm();
     }
+
+    // The dimmer is for playing; the menus run at full brightness.
+    const bool performing = context == CONTEXT_BYPASS || context == CONTEXT_RUN;
+    ledSetDimmer(performing ? settingsDimmer() : LED_FULL);
 
     // The error blink overrides whatever the ON LED shows, until it ends.
     if (errorShowing)
@@ -514,7 +641,8 @@ void uiTick(void)
     while (gestureNext(nowUs, &gesture)) { handleGesture(&gesture); }
 
     if (inMenu() && deadlineExpired(menuDeadline)) { leaveMenu(); }
-    if (!inMenu()) { applyPots(); }
+    if (context == CONTEXT_SETTINGS) { applySettingsPots(); }
+    else if (!inMenu())              { applyPots(); }
     renderLeds();
 }
 
@@ -523,9 +651,9 @@ bool uiFillFrame(UiToH7Packet* tx)
     if (context == CONTEXT_BOOT) { return false; }
 
     // Engaged in RUN and in the menus entered from it: browsing leaves the audio alone.
-    const bool engaged = context != CONTEXT_BYPASS;
+    const bool engaged = context == CONTEXT_RUN || inMenu();
     const uint32_t period = tempoPeriodUs();
-    tx->runFlags     = (uint16_t) (DEFAULT_RUN_FLAGS | (engaged ? RUN_FLAG_ENGAGED : 0u) |
+    tx->runFlags     = (uint16_t) (settingsRunFlags() | (engaged ? RUN_FLAG_ENGAGED : 0u) |
                                    (tempoSource() << RUN_FLAG_TEMPO_SRC_SHIFT));
     paramStoreFill(tx);
     tx->eventToggles = 0u;
