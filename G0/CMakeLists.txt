@@ -64,6 +64,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/core/timebase.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/hid/gesture.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/hid/led.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/hid/midi.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/hid/pot.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/hid/switch.c
     ${CMAKE_CURRENT_SOURCE_DIR}/App/ui/ui_context.c
