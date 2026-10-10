@@ -23,9 +23,16 @@ void tempoTap(uint32_t pressUs);
 // Preset recall. 0 leaves the running tempo alone. The beat restarts at nowUs.
 void tempoRecall(uint16_t centiBpm, uint32_t nowUs);
 
-// MIDI real-time bytes, timestamped on arrival. Start makes the next clock a beat.
+// MIDI real-time bytes, timestamped on arrival. The clock sets the tempo whether or
+// not the sender is playing. Beats follow its song position: Start makes the next
+// clock a beat, Stop holds the position while the beat runs on at the clock's tempo,
+// and Continue resumes from it. Until the first Stop, every clock counts.
 void tempoMidiClock(uint32_t nowUs);
 void tempoMidiStart(void);
+void tempoMidiStop(void);
+void tempoMidiContinue(void);
+// Song position pointer, in sixteenths: the position the next clock lands on.
+void tempoMidiSongPosition(uint16_t sixteenths);
 
 // The MIDI clock setting (plan §3.4). Following is the default.
 void tempoSetFollowMidi(bool follow);

@@ -24,6 +24,8 @@ static uint32_t clockUs[TEMPO_CLOCK_PPQN + 1u];
 static uint8_t  clockCount; // valid entries
 static uint8_t  clockNext;
 static uint8_t  clockTick;  // position in the beat; 0 = on the beat
+static bool     playing;    // clocks advance clockTick
+static bool     realign;    // the position moved: the next timed clock places the beat
 
 static uint32_t clampPeriod(uint32_t periodUs)
 {
@@ -32,12 +34,12 @@ static uint32_t clampPeriod(uint32_t periodUs)
     return periodUs;
 }
 
+// The song position survives a lost clock, so a Continue after a pause in the clock
+// still lands where the sender stopped.
 static void resetClock(void)
 {
     clockCount = 0u;
     clockNext  = 0u;
-    // The next clock is a beat.
-    clockTick  = TEMPO_CLOCK_PPQN - 1u;
     midi.periodUs = 0u;
 }
 
@@ -50,6 +52,7 @@ void tempoInit(void)
     tapCount   = 0u;
     tapNext    = 0u;
     resetClock();
+    tempoMidiStart();
 }
 
 void tempoTap(uint32_t pressUs)
@@ -99,13 +102,40 @@ void tempoMidiClock(uint32_t nowUs)
         midi.periodUs = clampPeriod(span / intervals * TEMPO_CLOCK_PPQN);
     }
 
+    if (!playing) { return; }
     clockTick = (uint8_t) ((clockTick + 1u) % TEMPO_CLOCK_PPQN);
-    if (clockTick == 0u) { midi.beatUs = nowUs; }
+    // Otherwise the grid would stay on the beat before a Stop or a locate until the
+    // next beat.
+    if (clockTick == 0u || (realign && midi.periodUs != 0u))
+    {
+        midi.beatUs = nowUs - clockTick * (midi.periodUs / TEMPO_CLOCK_PPQN);
+        realign = false;
+    }
 }
 
 void tempoMidiStart(void)
 {
-    clockTick = TEMPO_CLOCK_PPQN - 1u;
+    tempoMidiSongPosition(0u);
+    playing = true;
+}
+
+void tempoMidiStop(void)
+{
+    playing = false;
+}
+
+void tempoMidiContinue(void)
+{
+    playing = true;
+    realign = true;
+}
+
+void tempoMidiSongPosition(uint16_t sixteenths)
+{
+    // A sixteenth is 6 clocks. clockTick holds the clock before the next one.
+    const uint8_t next = (uint8_t) ((sixteenths % 4u) * (TEMPO_CLOCK_PPQN / 4u));
+    clockTick = (uint8_t) ((next + TEMPO_CLOCK_PPQN - 1u) % TEMPO_CLOCK_PPQN);
+    realign = true;
 }
 
 void tempoSetFollowMidi(bool follow)
